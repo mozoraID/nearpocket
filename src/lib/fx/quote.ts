@@ -218,10 +218,12 @@ export function formatFiat(amount: number, currency: string, symbol: string) {
   })}`;
 }
 
+/** User-facing USDC — always 2 decimals. Keep full precision in store/quotes. */
 export function formatUsdc(amount: number) {
-  return `${amount.toLocaleString("en-US", {
+  const n = Number.isFinite(amount) ? amount : 0;
+  return `${n.toLocaleString("en-US", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
+    maximumFractionDigits: 2,
   })} USDC`;
 }
 

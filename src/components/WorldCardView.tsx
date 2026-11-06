@@ -1,5 +1,7 @@
 "use client";
 
+import { formatUsdc } from "@/lib/fx/quote";
+
 import { useState, type ReactNode } from "react";
 import { ArrowLeft, CreditCard, Snowflake, WalletCards } from "lucide-react";
 import { Sheet } from "./Sheet";
@@ -126,7 +128,7 @@ export function WorldCardView({
       <div className="card space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-warm-600">{t("card.limit")}</span>
-          <span className="font-semibold">{card.limitUsdc} USDC</span>
+          <span className="font-semibold">{formatUsdc(card.limitUsdc)}</span>
         </div>
         <div className="flex gap-2">
           <input
@@ -148,7 +150,7 @@ export function WorldCardView({
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-warm-600">Card balance</span>
-          <span className="font-semibold">{card.balanceUsdc.toFixed(2)} USDC</span>
+          <span className="font-semibold">{formatUsdc(card.balanceUsdc)}</span>
         </div>
         <div className="flex gap-2">
           <input
@@ -200,7 +202,7 @@ export function WorldCardView({
         onClick={() => {
           const amt = parseFloat(wAmount);
           if (amt > card.limitUsdc) {
-            setError(`Amount exceeds card limit (${card.limitUsdc} USDC).`);
+            setError(`Amount exceeds card limit (${formatUsdc(card.limitUsdc)}).`);
             return;
           }
           payWorld();

@@ -3,6 +3,7 @@
 import { ArrowDownLeft, ArrowUpRight, Bot, CreditCard, ShoppingBag } from "lucide-react";
 import type { ActivityEntry } from "@/lib/store";
 import { StatusBadge } from "./StatusBadge";
+import { formatUsdc } from "@/lib/fx/quote";
 
 const ICON: Record<string, typeof ArrowUpRight> = { payment: ArrowUpRight, purchase: ShoppingBag, topup: ArrowDownLeft, agent: Bot, card: CreditCard };
 
@@ -34,7 +35,7 @@ export function ActivityRow({ a, onClick }: { a: ActivityEntry; onClick?: () => 
         {typeof a.amountUsdc === "number" && (
           <span className="text-sm font-semibold">
             {a.direction === "in" ? "+" : "−"}
-            {a.amountUsdc.toFixed(2)}
+            {formatUsdc(a.amountUsdc)}
           </span>
         )}
         {a.status && a.kind !== "topup" && <StatusBadge status={a.status} />}
