@@ -17,11 +17,26 @@ function Splash({ detail }: { detail: string }) {
   );
 }
 
+function isSigningOutNow(): boolean {
+  try {
+    if (sessionStorage.getItem("nearpocket-signing-out") !== "1") return false;
+    const started = Number(sessionStorage.getItem("nearpocket-signing-out-at") || "0");
+    // Only hold the gate for a few seconds while hard-nav to / completes
+    if (started && Date.now() - started > 4000) {
+      sessionStorage.removeItem("nearpocket-signing-out");
+      sessionStorage.removeItem("nearpocket-signing-out-at");
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Hold wallet routes until zustand persist (and a short settle) is ready.
+ * Hold wallet routes until zustand persist is ready.
  * Unauthenticated → /login?next= only — never marketing /.
- * During / just-after sign-out (suppress-restore), hold splash so we do not
- * race the hard navigation to landing.
+ * During the brief sign-out hard-nav window, hold splash (do not bounce to /login).
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const accountId = useNearPocketStore((s) => s.accountId);
@@ -29,13 +44,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  const [suppress, setSuppress] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const finish = () => setReady(true);
     const unsub = useNearPocketStore.persist.onFinishHydration(finish);
     if (useNearPocketStore.persist.hasHydrated()) finish();
-    // Safety net if persist hangs
     const t = window.setTimeout(finish, 2500);
     return () => {
       unsub();
@@ -44,25 +58,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    try {
-      setSuppress(sessionStorage.getItem("nearpocket-suppress-restore") === "1");
-    } catch {
-      setSuppress(false);
-    }
+    setSigningOut(isSigningOutNow());
   }, [accountId, ready]);
 
   useEffect(() => {
     if (!ready) return;
     if (accountId) return;
-    // Sign-out in flight: do not bounce to /login — SignOut hard-navs to /
-    if (suppress) return;
+    if (signingOut) return;
     const qs = searchParams?.toString();
     const next = pathname + (qs ? `?${qs}` : "");
     router.replace(`/login?next=${encodeURIComponent(next || "/home")}`);
-  }, [ready, accountId, pathname, searchParams, router, suppress]);
+  }, [ready, accountId, pathname, searchParams, router, signingOut]);
 
   if (!ready) return <Splash detail="Loading wallet…" />;
-  if (!accountId && suppress) return <Splash detail="Signing out…" />;
+  if (!accountId && signingOut) return <Splash detail="Signing out…" />;
   if (!accountId) return <Splash detail="Redirecting to sign in…" />;
   return <>{children}</>;
 }

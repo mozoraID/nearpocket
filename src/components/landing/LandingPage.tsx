@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ScanLine,
   Globe2,
@@ -64,6 +64,12 @@ export function LandingPage() {
   const t = useT();
   const connectDemo = useNearPocketStore((s) => s.connectDemo);
   const { phase } = useAuthSession();
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("nearpocket-signing-out");
+      sessionStorage.removeItem("nearpocket-signing-out-at");
+    } catch { /* */ }
+  }, []);
   const loginHref = "/login?next=%2Fhome";
   const authLoading = phase === "loading";
   const hasSession = phase === "signed_in";

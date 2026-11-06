@@ -36,9 +36,11 @@ function scrubStorage() {
 export async function fullSignOut(opts?: {
   privyLogout?: () => Promise<void> | void;
 }): Promise<void> {
-  // Mark suppress BEFORE mutating store so AuthGate won't redirect to /login
+  // Mark suppress + short-lived signing-out BEFORE mutating store
   try {
     sessionStorage.setItem("nearpocket-suppress-restore", "1");
+    sessionStorage.setItem("nearpocket-signing-out", "1");
+    sessionStorage.setItem("nearpocket-signing-out-at", String(Date.now()));
   } catch { /* */ }
 
   // 1) Local encrypted wallet
