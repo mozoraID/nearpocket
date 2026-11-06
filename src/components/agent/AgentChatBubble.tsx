@@ -128,6 +128,7 @@ export function AgentChatBubble() {
       } else {
         item = {
           ...item,
+          title: title.length >= 3 ? title : item.title,
           maxBudgetUsdc: item.maxBudgetUsdc || budget,
           deadline: item.deadline || deadline,
           targetPriceUsdc: item.maxBudgetUsdc || budget,

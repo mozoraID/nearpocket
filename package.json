@@ -43,5 +43,5 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "description": "NearPocket — Your NEAR pocket for real-world money. QRIS, Intents, merchant shopping & agent waitlists."
+  "description": "NearPocket \u2014 Your NEAR pocket for real-world money. QRIS, Intents, merchant shopping & agent waitlists."
 }
