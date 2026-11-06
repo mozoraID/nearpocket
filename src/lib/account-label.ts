@@ -1,5 +1,10 @@
 /** Short, human label for the header chip — never the full raw address. */
-export function shortAccountLabel(accountId: string | null | undefined, _authMethod?: string | undefined // reserved for future method-specific labels): string {
+export function shortAccountLabel(
+  accountId: string | null | undefined,
+  // authMethod reserved for future method-specific labels
+  authMethod?: string,
+): string {
+  void authMethod;
   if (!accountId) return "Account";
   // Named NEAR accounts
   if (accountId.endsWith(".near") || accountId.endsWith(".testnet")) {
