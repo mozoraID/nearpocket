@@ -13,7 +13,8 @@ export const BRAND = {
   /** GitHub / Vercel slug */
   repoSlug: "nearpocket",
   githubUrl: "https://github.com/mozoraID/nearpocket",
-  liveUrl: "https://nearpocket-ijustabi.vercel.app",
+  liveUrl: "https://nearpocket.vercel.app",
+  liveTeamUrl: "https://nearpocket-ijustabi.vercel.app",
   liveAlias: "https://nearly-ijustabi.vercel.app",
   legacyAlias: "https://nearly-blue.vercel.app",
   hackathonTracks: ["realworld", "agents"] as const,

@@ -27,7 +27,7 @@ Plus a shopping agent that waitlists deals but can’t spend without you (on-cha
 
 Built at NEAR HACKATHON — realworld + agents.
 
-Demo: https://nearpocket-ijustabi.vercel.app
+Demo: https://nearpocket.vercel.app
 Repo: https://github.com/mozoraID/nearpocket
 
 @NEARProtocol #NEARHackathon @NearBuilders

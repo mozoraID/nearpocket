@@ -6,7 +6,8 @@
 
 A **NEAR-native** wallet that feels like a normal payment app: scan QRIS (and ASEAN QR corridors), pay worldwide via **NEAR Intents / 1Click** → native USDC on NEAR → card/link rails, shop or sell as a merchant, and run **shopping plans** where an agent searches multiple marketplaces — **you approve every purchase** via an on-chain spend-policy contract and function-call access keys.
 
-**Live demo:** https://nearpocket-ijustabi.vercel.app  
+**Live demo:** https://nearpocket.vercel.app  
+**Team alias:** https://nearpocket-ijustabi.vercel.app  
 **Legacy URL (still works):** https://nearly-ijustabi.vercel.app  
 **Repo:** https://github.com/mozoraID/nearpocket
 
