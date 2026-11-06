@@ -101,9 +101,9 @@ export default function AgentPage() {
   return (
     <main className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold">Agent</h1>
+        <h1 className="text-2xl font-bold">Agent (legacy waitlist)</h1>
         <p className="text-sm text-slate-400">
-          Autonomous shopping with waitlist — you keep the keys
+          Prefer <a className="text-cyan-300 underline" href="/plans">Shopping plans</a> for multi-marketplace planning.
         </p>
       </header>
       <DemoBanner />

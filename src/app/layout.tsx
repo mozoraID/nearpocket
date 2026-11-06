@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
+import { BRAND } from "@/config/brand";
 
 export const metadata: Metadata = {
-  title: "Nearly — Pay nearly anywhere",
-  description:
-    "NEAR wallet for QRIS, worldwide payments, merchant checkout & autonomous shopping agents with user-controlled spend limits. Built for NEAR HACKATHON.",
-  applicationName: "Nearly",
+  title: `${BRAND.displayName} — ${BRAND.tagline}`,
+  description: BRAND.description,
+  applicationName: BRAND.displayName,
 };
 
 export const viewport: Viewport = {

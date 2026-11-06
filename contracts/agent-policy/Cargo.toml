@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = "5.5.0"
+near-sdk = { version = "=5.5.0", features = ["legacy"] }
 
 [profile.release]
 codegen-units = 1
@@ -16,3 +16,5 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
+
+[workspace]

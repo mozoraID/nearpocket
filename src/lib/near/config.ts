@@ -1,3 +1,5 @@
+import deployed from "@/config/deployed.json";
+
 export const NEAR_NETWORK = (process.env.NEXT_PUBLIC_NEAR_NETWORK ||
   "testnet") as "testnet" | "mainnet";
 
@@ -19,16 +21,23 @@ export const NEAR_CONFIG = {
     NEAR_NETWORK === "mainnet"
       ? "https://nearblocks.io"
       : "https://testnet.nearblocks.io",
-  /**
-   * Optional deployed agent-policy contract.
-   * Leave empty → UI uses local policy + clearly labeled demo receipts.
-   */
+  /** Deployed agent-policy contract (override with NEXT_PUBLIC_AGENT_POLICY_CONTRACT). */
   agentPolicyContract:
-    process.env.NEXT_PUBLIC_AGENT_POLICY_CONTRACT || "",
+    process.env.NEXT_PUBLIC_AGENT_POLICY_CONTRACT ||
+    deployed.contractId ||
+    "",
 };
 
 export const DEMO_ACCOUNT = {
-  accountId: "demo.nearly.testnet",
+  accountId: "demo.local",
   displayBalanceUsdc: 128.5,
   displayNear: 12.04,
 };
+
+export function explorerTxUrl(hash: string) {
+  return `${NEAR_CONFIG.explorerUrl}/txns/${hash}`;
+}
+
+export function explorerAccountUrl(accountId: string) {
+  return `${NEAR_CONFIG.explorerUrl}/address/${accountId}`;
+}

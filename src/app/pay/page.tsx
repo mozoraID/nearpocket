@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DemoBanner } from "@/components/DemoBanner";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -27,6 +27,15 @@ function PayInner() {
   const [cardMerchant, setCardMerchant] = useState("Apple Store Online");
   const [cardAmount, setCardAmount] = useState("49.00");
   const [fromToken, setFromToken] = useState("NEAR");
+
+  useEffect(() => {
+    const scanned = sessionStorage.getItem("nearly_scanned_qr");
+    if (scanned) {
+      setRaw(scanned);
+      sessionStorage.removeItem("nearly_scanned_qr");
+      setActive("qris");
+    }
+  }, []);
 
   const recordReceipt = useNearlyStore((s) => s.recordReceipt);
   const debitUsdc = useNearlyStore((s) => s.debitUsdc);

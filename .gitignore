@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local secrets / NEAR keys — never commit
+.nearly-credentials/
+**/.nearly-credentials/
+.env
+.env.local
+.env*.local
+*.pem
+contracts/agent-policy/target/
+.nearly-credentials/
