@@ -27,10 +27,10 @@ Plus an shopping agent that waitlists deals but can’t spend without you.
 
 Built at NEAR HACKATHON.
 
-Demo: <LIVE_URL>
+Demo: https://nearly-ijustabi.vercel.app
 Repo: https://github.com/mozoraID/nearly
 
 @NEARProtocol #NEARHackathon @NearBuilders
 ```
 
-Replace `<LIVE_URL>` after Vercel deploy. Attach the 60–90s video.
+Replace `https://nearly-ijustabi.vercel.app` after Vercel deploy. Attach the 60–90s video.

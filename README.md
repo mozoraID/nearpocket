@@ -4,7 +4,7 @@
 
 > A NEAR wallet that feels like a normal payment app: scan QRIS (and ASEAN QR corridors), pay worldwide via card/link rails, shop or sell as a merchant, and queue purchases with an autonomous agent that **cannot spend without your approval**.
 
-**Live demo:** see Vercel deployment linked in the repo About / releases after deploy.  
+**Live demo:** https://nearly-ijustabi.vercel.app (alias: https://nearly-blue.vercel.app)  
 **X demo post:** (Abi posts this — draft in `/docs/DEMO.md`)
 
 ---
