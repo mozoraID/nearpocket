@@ -12,6 +12,8 @@ import type { ShoppingPlan } from "./agent/plans";
 import type { SettlementReceipt } from "./settlement/types";
 import { DEMO_ACCOUNT } from "./near/config";
 import { defaultConnectedIds, type MarketplaceId } from "./marketplaces";
+import type { DisplayCurrencyCode } from "./region/display-currency";
+import { demoWaitlistFor } from "./region/demo-seed";
 
 /** Sample pending agent approval so Home matches the landing carousel (demo-labeled). */
 export const DEMO_WAITLIST_ITEM: WaitlistItem = {
@@ -72,6 +74,9 @@ interface NearPocketState {
   receipts: SettlementReceipt[];
   connectedMarketplaces: MarketplaceId[];
   card: VirtualCard;
+  /** ISO display fiat for ≈ lines + Settings (USDC remains ledger) */
+  displayCurrency: DisplayCurrencyCode;
+  setDisplayCurrency: (c: DisplayCurrencyCode) => void;
   connectDemo: () => void;
   connectWallet: (accountId: string, method?: AuthMethod) => void;
   disconnect: () => void;
@@ -111,6 +116,19 @@ export const useNearPocketStore = create<NearPocketState>()(
       receipts: [],
       activity: [],
       connectedMarketplaces: defaultConnectedIds(),
+      displayCurrency: "USD",
+      setDisplayCurrency: (c) => {
+        set({ displayCurrency: c });
+        // Refresh demo approval flavor when switching region (demo-only seed)
+        const wl = get().waitlist;
+        const demoIdx = wl.findIndex((w) => w.notes === "demo" || w.id.startsWith("demo_"));
+        if (demoIdx >= 0) {
+          const seeded = demoWaitlistFor(c);
+          const next = [...wl];
+          next[demoIdx] = { ...seeded, id: wl[demoIdx].id, createdAt: wl[demoIdx].createdAt };
+          set({ waitlist: next });
+        }
+      },
       card: {
         last4: "4242",
         holder: "NEARPOCKET DEMO",
@@ -131,7 +149,9 @@ export const useNearPocketStore = create<NearPocketState>()(
             ...get().activity,
           ].slice(0, 80),
         }),
-      connectDemo: () =>
+      connectDemo: () => {
+        const ccy = get().displayCurrency || "USD";
+        const seed = demoWaitlistFor(ccy);
         set({
           accountId: DEMO_ACCOUNT.accountId,
           demoMode: true,
@@ -140,8 +160,9 @@ export const useNearPocketStore = create<NearPocketState>()(
           waitlist:
             get().waitlist.length > 0
               ? get().waitlist
-              : [{ ...DEMO_WAITLIST_ITEM, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
-        }),
+              : [seed],
+        });
+      },
       connectWallet: (accountId, method = "selector") =>
         set({ accountId, demoMode: false, authMethod: method }),
       disconnect: () => set({ accountId: null, demoMode: true, authMethod: "demo" }),
@@ -195,16 +216,10 @@ export const useNearPocketStore = create<NearPocketState>()(
       setCard: (patch) => set({ card: { ...get().card, ...patch } }),
       ensureDemoWaitlist: () => {
         if (get().waitlist.some((w) => w.status === "awaiting_approval")) return;
-        if (get().waitlist.some((w) => w.id === DEMO_WAITLIST_ITEM.id)) return;
+        if (get().waitlist.some((w) => w.notes === "demo" || w.id.startsWith("demo_"))) return;
+        const seed = demoWaitlistFor(get().displayCurrency || "USD");
         set({
-          waitlist: [
-            {
-              ...DEMO_WAITLIST_ITEM,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-            ...get().waitlist,
-          ].slice(0, 50),
+          waitlist: [seed, ...get().waitlist].slice(0, 50),
         });
       },
       topUpCard: (amountUsdc) => {
@@ -230,6 +245,7 @@ export const useNearPocketStore = create<NearPocketState>()(
         activity: s.activity,
         connectedMarketplaces: s.connectedMarketplaces,
         card: s.card,
+        displayCurrency: s.displayCurrency,
       }),
     },
   ),

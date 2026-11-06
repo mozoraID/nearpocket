@@ -2,14 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SignOutButton } from "@/components/SignOutButton";
 import { useI18n, useT } from "@/lib/i18n";
 import { useNearPocketStore } from "@/lib/store";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
-import { formatRateLine, type FxQuote } from "@/lib/fx/quote";
+import { sourceLabel, type FxTableRow } from "@/lib/fx/quote";
+import {
+  DISPLAY_CURRENCIES,
+  type DisplayCurrencyCode,
+  getDisplayCurrency,
+} from "@/lib/region/display-currency";
 import { authMethodLabel } from "@/lib/account-label";
 import { BRAND } from "@/config/brand";
 
@@ -19,17 +24,31 @@ export default function SettingsPage() {
   const accountId = useNearPocketStore((s) => s.accountId);
   const demoMode = useNearPocketStore((s) => s.demoMode);
   const authMethod = useNearPocketStore((s) => s.authMethod);
-  const [fx, setFx] = useState<FxQuote | null>(null);
+  const displayCurrency = useNearPocketStore((s) => s.displayCurrency);
+  const setDisplayCurrency = useNearPocketStore((s) => s.setDisplayCurrency);
+  const [rows, setRows] = useState<FxTableRow[] | null>(null);
+  const [fxError, setFxError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/fx?currency=IDR&amount=1")
+    fetch("/api/fx?table=1")
       .then((r) => r.json())
-      .then(setFx)
-      .catch(() => null);
+      .then((d) => {
+        if (d?.rows) setRows(d.rows);
+        else setFxError("Could not load rates");
+      })
+      .catch(() => setFxError("Could not load rates"));
   }, []);
 
   const loc = locales.find((l) => l.id === locale);
   const method = authMethodLabel(authMethod, demoMode);
+  const selected = getDisplayCurrency(displayCurrency);
+
+  function choose(code: DisplayCurrencyCode) {
+    setDisplayCurrency(code);
+    try {
+      localStorage.setItem("nearpocket-currency-chosen", "1");
+    } catch { /* */ }
+  }
 
   return (
     <main className="space-y-5">
@@ -48,30 +67,115 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <section className="card space-y-3">
+        <div>
+          <h2 className="font-semibold">{t("settings.homeCurrency")}</h2>
+          <p className="mt-1 text-sm text-warm-600">{t("settings.homeCurrencyHint")}</p>
+        </div>
+        <div className="space-y-2">
+          {DISPLAY_CURRENCIES.map((c) => {
+            const active = c.code === selected.code;
+            return (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => choose(c.code)}
+                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left ring-1 transition ${
+                  active ? "bg-ink text-cream-100 ring-ink" : "bg-cream-50 ring-cream-300"
+                }`}
+              >
+                <span className="text-xl" aria-hidden>
+                  {c.flag}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">
+                    {c.country}
+                    {c.demo ? (
+                      <span className={`ml-2 text-[10px] font-bold uppercase tracking-wide ${active ? "text-cream-400" : "text-warm-500"}`}>
+                        demo
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className={`block text-xs ${active ? "text-cream-400" : "text-warm-500"}`}>
+                    {c.code} · {c.rail}
+                  </span>
+                </span>
+                {active ? <Check className="h-4 w-4 shrink-0" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <div>
+          <h2 className="font-semibold">{t("settings.fx")}</h2>
+          <p className="mt-1 text-sm text-warm-600">{t("settings.fxTableHint")}</p>
+        </div>
+        {fxError && <p className="text-sm text-[#8a2d1c]">{fxError}</p>}
+        {!rows && !fxError && <p className="text-sm text-warm-600">{t("common.loading")}</p>}
+        {rows && (
+          <div className="overflow-hidden rounded-2xl ring-1 ring-cream-300">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-cream-200 text-left text-xs text-warm-600">
+                  <th className="px-3 py-2 font-medium">1 USDC</th>
+                  <th className="px-3 py-2 font-medium">Rate</th>
+                  <th className="px-3 py-2 font-medium">{t("settings.fxSource")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const meta = getDisplayCurrency(r.currency);
+                  const hi = r.currency === selected.code;
+                  return (
+                    <tr
+                      key={r.currency}
+                      className={hi ? "bg-ink/5 font-semibold" : "border-t border-cream-300"}
+                    >
+                      <td className="px-3 py-2.5">
+                        <span className="mr-1.5">{meta.flag}</span>
+                        {r.currency}
+                        {hi ? <span className="ml-1 text-[10px] uppercase text-warm-500">you</span> : null}
+                      </td>
+                      <td className="px-3 py-2.5 tabular-nums">
+                        {r.rate.toLocaleString("en-US", {
+                          maximumFractionDigits: meta.zeroDecimal ? 0 : 4,
+                        })}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-warm-500">{sourceLabel(r.source)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {rows[0] && (
+              <p className="border-t border-cream-300 px-3 py-2 text-[11px] text-warm-500">
+                {t("settings.fxAsOf", {
+                  time: new Date(rows[0].asOf).toLocaleString("en-GB", {
+                    timeZone: "Asia/Jakarta",
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                })}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+
       <section className="card space-y-2">
         <h2 className="font-semibold">{t("settings.account")}</h2>
         <p className="break-all text-sm font-medium">{accountId || "—"}</p>
         <p className="text-xs text-warm-500">
-          {method} · {NEAR_CONFIG.networkId}
+          {method} · {NEAR_CONFIG.networkId} · {selected.code}
         </p>
         {accountId && !demoMode && (
           <a className="text-sm underline" href={explorerAccountUrl(accountId)} target="_blank" rel="noreferrer">
             {t("auth.viewExplorer")}
           </a>
-        )}
-      </section>
-
-      <section className="card space-y-2">
-        <h2 className="font-semibold">{t("settings.fx")}</h2>
-        {fx ? (
-          <>
-            <p className="text-lg font-semibold">
-              1 USDC = {fx.rate.toLocaleString("en-US", { maximumFractionDigits: 2 })} IDR
-            </p>
-            <p className="text-xs text-warm-600">{formatRateLine(fx)}</p>
-          </>
-        ) : (
-          <p className="text-sm text-warm-600">{t("common.loading")}</p>
         )}
       </section>
 

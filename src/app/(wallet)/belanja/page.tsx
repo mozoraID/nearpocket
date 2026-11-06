@@ -19,6 +19,8 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ReceiptView } from "@/components/ReceiptView";
 import { MarketplaceMark } from "@/components/MarketplaceMark";
 import { useNearPocketStore } from "@/lib/store";
+import { useDisplayFx } from "@/hooks/useDisplayFx";
+import { marketplaceCountryFor } from "@/lib/region/display-currency";
 import type { MarketplaceOffer } from "@/lib/marketplaces/types";
 import {
   MARKETPLACE_CATALOG,
@@ -34,7 +36,7 @@ import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { trySetPolicyOnChain } from "@/lib/near/set-policy";
 import { useT } from "@/lib/i18n";
 import { AgentChatInline } from "@/components/agent/AgentChatInline";
-import { formatRateLine } from "@/lib/fx/quote";
+import { } from "@/lib/fx/quote";
 
 const SUGGESTIONS = ["Wireless earbuds", "Kopi arabica", "Hoodie", "Mechanical keyboard"];
 
@@ -72,8 +74,8 @@ export default function BelanjaPage() {
   const [lastQuery, setLastQuery] = useState("");
   const [offers, setOffers] = useState<MarketplaceOffer[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [idrQuote, setIdrQuote] = useState<FxQuote | null>(null);
   const [chain, setChain] = useState<ChainInfo | null>(null);
+  const { localFromUsdc, displayCurrency } = useDisplayFx();
 
   const [askFor, setAskFor] = useState<{ title: string; offer?: MarketplaceOffer } | null>(null);
   const [budget, setBudget] = useState("");
@@ -83,22 +85,17 @@ export default function BelanjaPage() {
   const [overview, setOverview] = useState<MarketplaceOffer | null>(null);
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
-  const [countryFilter, setCountryFilter] = useState("ID");
+  const [countryFilter, setCountryFilter] = useState("WW");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [policyMsg, setPolicyMsg] = useState<string | null>(null);
 
-  const idrRate = idrQuote?.rate ?? null;
-
   useEffect(() => {
     setMounted(true);
-    fetch("/api/fx?currency=IDR&amount=10000")
-      .then((r) => r.json())
-      .then((q) => q?.rate && setIdrQuote(q))
-      .catch(() => null);
+    setCountryFilter(marketplaceCountryFor(displayCurrency));
     fetch("/api/contract").then((r) => r.json()).then(setChain).catch(() => null);
-  }, []);
+  }, [displayCurrency]);
 
   async function search(q: string) {
     const term = q.trim();
@@ -291,9 +288,7 @@ export default function BelanjaPage() {
 
       {msg && <p className="mt-4 rounded-2xl bg-cream-100 px-4 py-3 text-sm ring-1 ring-cream-300">{msg}</p>}
       {policyMsg && <p className="mt-2 text-xs text-warm-600">{policyMsg}</p>}
-      {idrQuote && (
-        <p className="mt-2 text-[11px] text-warm-500">{formatRateLine(idrQuote)}</p>
-      )}
+      {/* FX line comes from offer cards via display currency */}
 
       {offers && (
         <section className="mt-5">
@@ -342,7 +337,7 @@ export default function BelanjaPage() {
                     <div className="shrink-0 text-right">
                       <p className="text-lg font-bold">{o.priceUsdc.toFixed(2)}</p>
                       <p className="text-[11px] text-warm-600">USDC</p>
-                      {idrRate && <p className="text-[11px] text-warm-500">≈ Rp {Math.round(o.priceUsdc * idrRate).toLocaleString("id-ID")}</p>}
+                      <p className="text-[11px] text-warm-500">{localFromUsdc(o.priceUsdc)}</p>
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">

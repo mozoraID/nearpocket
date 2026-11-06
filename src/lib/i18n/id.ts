@@ -182,6 +182,10 @@ export const id: Dict = {
   "settings.security": "Keamanan",
   "settings.fx": "Kurs",
   "settings.fxSource": "Sumber",
+  "settings.homeCurrency": "Negara asal / mata uang tampilan",
+  "settings.homeCurrencyHint": "Saldo dan harga tampil dalam USDC plus perkiraan mata uang ini. Pembayaran QR tetap settle di mata uang merchant.",
+  "settings.fxTableHint": "1 USDC → tiap mata uang yang didukung. Frankfurter/ECB bila ada; jika tidak, open.er-api. Mata uangmu ditandai.",
+  "settings.fxAsOf": "Per {time} WIB",
   "settings.about": "Tentang",
 
   "fx.line": "1 USDC = {rate} {currency}",
@@ -193,7 +197,7 @@ export const id: Dict = {
 
   "landing.badge": "NEAR Hackathon · demo testnet",
   "landing.heroTitle": "Bayar di mana saja dengan NEAR",
-  "landing.heroSub": "Scan QRIS & QR ASEAN, bayar ke seluruh dunia dengan NearPocket Card, belanja di marketplace terhubung — dan biarkan agen belanja menunggu persetujuanmu. Dompet self-custody di NEAR testnet.",
+  "landing.heroSub": "Scan QR lokal di Asia, bayar ke seluruh dunia dengan NearPocket Card (USD), belanja di marketplace terhubung — dan biarkan agen belanja menunggu OK-mu. Self-custody di NEAR testnet.",
   "landing.ctaLaunch": "Buka aplikasi",
   "landing.ctaSignIn": "Masuk",
   "landing.ctaOpenApp": "Buka aplikasi",
@@ -237,7 +241,10 @@ export const id: Dict = {
   "landing.railMy": "Malaysia · DuitNow QR",
   "landing.railTh": "Thailand · PromptPay",
   "landing.railPh": "Filipina · QR Ph",
-  "landing.railVn": "Vietnam · VietQR",
+  "landing.railVn": "🇻🇳 Vietnam · VietQR",
+  "landing.railJp": "🇯🇵 Jepang · JPQR",
+  "landing.railKr": "🇰🇷 Korea · QR",
+  "landing.railWw": "🌐 Worldwide · Kartu (USD)",
 
   "landing.faqTitle": "FAQ",
   "landing.faq1Q": "Apakah ini uang sungguhan?",

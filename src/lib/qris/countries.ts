@@ -3,8 +3,11 @@ export type RailId =
   | "promptpay-th"
   | "duitnow-my"
   | "nets-sg"
+  | "qrph-ph"
+  | "vietqr-vn"
   | "jpqr-jp"
   | "kakaopay-kr"
+  | "upi-in"
   | "card-intl";
 
 export interface PaymentRail {
@@ -65,6 +68,39 @@ export const RAILS: Record<RailId, PaymentRail> = {
     currencyNumeric: "702",
     tip: "QRIS–NETS corridor via BI / MAS.",
   },
+  "qrph-ph": {
+    id: "qrph-ph",
+    country: "Philippines",
+    countryCode: "PH",
+    currency: "PHP",
+    currencySymbol: "₱",
+    name: "QR Ph",
+    kind: "emvco-qr",
+    currencyNumeric: "608",
+    tip: "Demo EMVCo QR Ph corridor.",
+  },
+  "vietqr-vn": {
+    id: "vietqr-vn",
+    country: "Vietnam",
+    countryCode: "VN",
+    currency: "VND",
+    currencySymbol: "₫",
+    name: "VietQR",
+    kind: "emvco-qr",
+    currencyNumeric: "704",
+    tip: "Demo VietQR corridor.",
+  },
+  "upi-in": {
+    id: "upi-in",
+    country: "India",
+    countryCode: "IN",
+    currency: "INR",
+    currencySymbol: "₹",
+    name: "UPI",
+    kind: "link",
+    currencyNumeric: "356",
+    tip: "Demo UPI / intent link (not full EMV parse).",
+  },
   "jpqr-jp": {
     id: "jpqr-jp",
     country: "Japan",
@@ -106,7 +142,10 @@ export function railFromCurrency(currency?: string, countryHint?: string): Payme
   if (c === "THB" || h === "TH") return RAILS["promptpay-th"];
   if (c === "MYR" || h === "MY") return RAILS["duitnow-my"];
   if (c === "SGD" || h === "SG") return RAILS["nets-sg"];
+  if (c === "PHP" || h === "PH") return RAILS["qrph-ph"];
+  if (c === "VND" || h === "VN") return RAILS["vietqr-vn"];
   if (c === "JPY" || h === "JP") return RAILS["jpqr-jp"];
   if (c === "KRW" || h === "KR") return RAILS["kakaopay-kr"];
+  if (c === "INR" || h === "IN") return RAILS["upi-in"];
   return RAILS["card-intl"];
 }

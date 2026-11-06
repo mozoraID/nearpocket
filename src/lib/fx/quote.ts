@@ -1,7 +1,9 @@
 /**
- * FX quotes: USDC (treated ~ USD) → local fiat.
- * Primary: Frankfurter (ECB). Cross-check: open.er-api.com.
+ * FX quotes: USDC (≈ USD) → local fiat.
+ * Primary: Frankfurter (ECB). Fallback / cross-check: open.er-api.com.
  */
+
+import { DISPLAY_CURRENCY_CODES, type DisplayCurrencyCode } from "@/lib/region/display-currency";
 
 export interface FxQuote {
   base: "USDC";
@@ -10,7 +12,6 @@ export interface FxQuote {
   amountLocal: number;
   amountUsdc: number;
   source: "frankfurter" | "exchangerate-api" | "fallback";
-  /** Secondary source rate when cross-checked */
   crossCheckRate?: number;
   crossCheckSource?: string;
   asOf: string;
@@ -19,20 +20,35 @@ export interface FxQuote {
   totalUsdc: number;
 }
 
+export interface FxTableRow {
+  currency: string;
+  rate: number;
+  source: FxQuote["source"];
+  asOf: string;
+  crossCheckRate?: number;
+}
+
+/** Static fallbacks when both live sources miss a pair */
 const FALLBACK_USD: Record<string, number> = {
-  IDR: 18069,
-  THB: 33.5,
-  MYR: 4.35,
-  SGD: 1.32,
-  JPY: 151,
-  KRW: 1380,
   USD: 1,
+  USDC: 1,
   EUR: 0.92,
+  GBP: 0.79,
+  IDR: 16250,
+  THB: 34.2,
+  MYR: 4.45,
+  SGD: 1.34,
+  PHP: 58.2,
+  VND: 25400,
+  JPY: 151,
+  KRW: 1385,
+  INR: 83.5,
 };
 
-const FEE_BPS = 35; // 0.35% demo partner fee
+const FEE_BPS = 35;
 
 async function frankfurter(ccy: string): Promise<{ rate: number; asOf: string } | null> {
+  if (ccy === "USD" || ccy === "USDC") return { rate: 1, asOf: new Date().toISOString() };
   try {
     const res = await fetch(
       `https://api.frankfurter.app/latest?from=USD&to=${encodeURIComponent(ccy)}`,
@@ -41,13 +57,13 @@ async function frankfurter(ccy: string): Promise<{ rate: number; asOf: string } 
     if (!res.ok) return null;
     const data = (await res.json()) as { rates: Record<string, number>; date: string };
     if (!data.rates?.[ccy]) return null;
-    return { rate: data.rates[ccy], asOf: `${data.date}T00:00:00.000Z` };
+    return { rate: data.rates[ccy], asOf: `${data.date}T12:00:00.000Z` };
   } catch {
     return null;
   }
 }
 
-async function openErApi(ccy: string): Promise<{ rate: number; asOf: string } | null> {
+async function openErApiAll(): Promise<{ rates: Record<string, number>; asOf: string } | null> {
   try {
     const res = await fetch("https://open.er-api.com/v6/latest/USD", {
       next: { revalidate: 300 },
@@ -58,14 +74,20 @@ async function openErApi(ccy: string): Promise<{ rate: number; asOf: string } | 
       time_last_update_utc?: string;
       result?: string;
     };
-    if (data.result !== "success" || !data.rates?.[ccy]) return null;
+    if (data.result !== "success" || !data.rates) return null;
     const asOf = data.time_last_update_utc
       ? new Date(data.time_last_update_utc).toISOString()
       : new Date().toISOString();
-    return { rate: data.rates[ccy], asOf };
+    return { rates: data.rates, asOf };
   } catch {
     return null;
   }
+}
+
+async function openErApi(ccy: string): Promise<{ rate: number; asOf: string } | null> {
+  const all = await openErApiAll();
+  if (!all?.rates?.[ccy]) return null;
+  return { rate: all.rates[ccy], asOf: all.asOf };
 }
 
 export async function quoteLocalToUsdc(
@@ -79,7 +101,10 @@ export async function quoteLocalToUsdc(
   let crossCheckRate: number | undefined;
   let crossCheckSource: string | undefined;
 
-  if (ccy !== "USD" && ccy !== "USDC") {
+  if (ccy === "USD" || ccy === "USDC") {
+    rate = 1;
+    source = "frankfurter";
+  } else {
     const [primary, secondary] = await Promise.all([frankfurter(ccy), openErApi(ccy)]);
     if (primary) {
       rate = primary.rate;
@@ -93,16 +118,10 @@ export async function quoteLocalToUsdc(
     if (secondary && primary) {
       crossCheckRate = secondary.rate;
       crossCheckSource = "open.er-api.com";
-    } else if (primary && !secondary) {
-      /* no cross */
-    } else if (!primary && secondary) {
-      /* already primary */
     }
-  } else {
-    rate = 1;
   }
 
-  if (!rate || rate <= 0) rate = FALLBACK_USD.IDR;
+  if (!rate || rate <= 0) rate = FALLBACK_USD[ccy] || 1;
   const amountUsdc = amountLocal / rate;
   const feeUsdc = (amountUsdc * FEE_BPS) / 10_000;
   const totalUsdc = amountUsdc + feeUsdc;
@@ -128,15 +147,62 @@ export async function quoteUsdcToLocal(
   amountUsdc: number,
 ): Promise<FxQuote> {
   const q = await quoteLocalToUsdc(currency, 1);
+  const zero = ["IDR", "JPY", "KRW", "VND", "INR"].includes(currency.toUpperCase());
   const amountLocal = amountUsdc * q.rate;
   const feeUsdc = (amountUsdc * FEE_BPS) / 10_000;
   return {
     ...q,
-    amountLocal: Math.round(amountLocal * 100) / 100,
+    amountLocal: zero ? Math.round(amountLocal) : Math.round(amountLocal * 100) / 100,
     amountUsdc: round6(amountUsdc),
     feeUsdc: round6(feeUsdc),
     totalUsdc: round6(amountUsdc + feeUsdc),
   };
+}
+
+/** Batch table for Settings — one live open.er-api pull + per-ccy Frankfurter where available */
+export async function quoteUsdcTable(
+  codes: string[] = DISPLAY_CURRENCY_CODES,
+): Promise<FxTableRow[]> {
+  const er = await openErApiAll();
+  const rows: FxTableRow[] = [];
+  await Promise.all(
+    codes.map(async (code) => {
+      const ccy = code.toUpperCase();
+      if (ccy === "USD" || ccy === "USDC") {
+        rows.push({ currency: "USD", rate: 1, source: "frankfurter", asOf: new Date().toISOString() });
+        return;
+      }
+      const primary = await frankfurter(ccy);
+      const secondaryRate = er?.rates?.[ccy];
+      if (primary) {
+        rows.push({
+          currency: ccy,
+          rate: primary.rate,
+          source: "frankfurter",
+          asOf: primary.asOf,
+          crossCheckRate: secondaryRate,
+        });
+      } else if (secondaryRate) {
+        rows.push({
+          currency: ccy,
+          rate: secondaryRate,
+          source: "exchangerate-api",
+          asOf: er!.asOf,
+        });
+      } else {
+        rows.push({
+          currency: ccy,
+          rate: FALLBACK_USD[ccy] || 1,
+          source: "fallback",
+          asOf: new Date().toISOString(),
+        });
+      }
+    }),
+  );
+  // Stable order matching DISPLAY_CURRENCY_CODES
+  const order = new Map(codes.map((c, i) => [c.toUpperCase(), i]));
+  rows.sort((a, b) => (order.get(a.currency) ?? 99) - (order.get(b.currency) ?? 99));
+  return rows;
 }
 
 function round6(n: number) {
@@ -145,7 +211,7 @@ function round6(n: number) {
 
 export function formatFiat(amount: number, currency: string, symbol: string) {
   const ccy = currency.toUpperCase();
-  const digits = ["IDR", "JPY", "KRW", "VND"].includes(ccy) ? 0 : 2;
+  const digits = ["IDR", "JPY", "KRW", "VND", "INR"].includes(ccy) ? 0 : 2;
   return `${symbol}${amount.toLocaleString("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -159,11 +225,10 @@ export function formatUsdc(amount: number) {
   })} USDC`;
 }
 
-/** Format rate line with source + time for UI */
-export function formatRateLine(q: FxQuote) {
-  const rateStr = q.rate.toLocaleString("en-US", { maximumFractionDigits: 2 });
+export function formatRateLine(q: FxQuote, timeZone = "Asia/Jakarta") {
+  const rateStr = q.rate.toLocaleString("en-US", { maximumFractionDigits: 4 });
   const when = new Date(q.asOf).toLocaleString("en-GB", {
-    timeZone: "Asia/Jakarta",
+    timeZone,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -177,7 +242,16 @@ export function formatRateLine(q: FxQuote) {
         ? "open.er-api"
         : "fallback";
   const cross = q.crossCheckRate
-    ? ` · cross-check ${q.crossCheckSource}: ${q.crossCheckRate.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+    ? ` · cross-check ${q.crossCheckSource}: ${q.crossCheckRate.toLocaleString("en-US", { maximumFractionDigits: 4 })}`
     : "";
-  return `1 USDC = ${rateStr} ${q.quote} · ${src}${cross} · ${when} WIB`;
+  const tzLabel = timeZone === "Asia/Jakarta" ? "WIB" : timeZone.split("/").pop() || "";
+  return `1 USDC = ${rateStr} ${q.quote} · ${src}${cross} · ${when} ${tzLabel}`.trim();
 }
+
+export function sourceLabel(source: FxQuote["source"]) {
+  if (source === "frankfurter") return "Frankfurter/ECB";
+  if (source === "exchangerate-api") return "open.er-api";
+  return "fallback";
+}
+
+export type { DisplayCurrencyCode };

@@ -22,11 +22,14 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 
 const RAILS = [
   "landing.railId",
-  "landing.railSg",
-  "landing.railMy",
   "landing.railTh",
+  "landing.railMy",
+  "landing.railSg",
   "landing.railPh",
   "landing.railVn",
+  "landing.railJp",
+  "landing.railKr",
+  "landing.railWw",
 ] as const;
 
 const FAQ = [

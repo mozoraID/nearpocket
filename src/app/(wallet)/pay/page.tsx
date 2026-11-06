@@ -12,6 +12,8 @@ import { DemoPill } from "@/components/DemoBanner";
 import { parseEmvQr, type ParsedQrPayment } from "@/lib/qris/parser";
 import { SAMPLE_QRS, type SampleKey } from "@/lib/qris/samples";
 import { formatFiat, formatUsdc, formatRateLine, type FxQuote } from "@/lib/fx/quote";
+import { useDisplayFx } from "@/hooks/useDisplayFx";
+import { formatDisplayAmount } from "@/lib/region/display-currency";
 import { buildCardSettlement, buildQrisSettlement, type SettlementReceipt, type SettlementRequest } from "@/lib/settlement";
 import { useNearPocketStore } from "@/lib/store";
 import { settleAndRecord, COUNTRY_FLAG } from "@/lib/client/pay";
@@ -35,6 +37,7 @@ function PayInner() {
   const router = useRouter();
   const params = useSearchParams();
   const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
+  const { displayCurrency, meta: displayMeta, rate: displayRate } = useDisplayFx();
 
   const [stage, setStage] = useState<Stage>(params.get("tab") === "world" ? "world" : "scan");
   const [parsed, setParsed] = useState<ParsedQrPayment | null>(null);
@@ -413,6 +416,11 @@ function PayInner() {
                 ? "Getting rate…"
                 : " "}
           </p>
+          {quote && displayRate && displayCurrency !== p.rail.currency && displayCurrency !== "USD" && (
+            <p className="mt-1 text-sm text-warm-600">
+              ≈ {formatDisplayAmount(quote.totalUsdc * displayRate, displayCurrency)} {displayMeta.flag} ({displayCurrency})
+            </p>
+          )}
           {quote && <p className="mt-1 text-[11px] text-warm-500">{formatRateLine(quote)}</p>}
         </div>
       </section>

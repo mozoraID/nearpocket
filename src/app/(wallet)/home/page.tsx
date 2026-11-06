@@ -9,7 +9,7 @@ import { ActivityRow } from "@/components/ActivityList";
 import { useNearPocketStore } from "@/lib/store";
 import { approveWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
 import { useT } from "@/lib/i18n";
-import { formatRateLine, type FxQuote } from "@/lib/fx/quote";
+import { useDisplayFx } from "@/hooks/useDisplayFx";
 
 export default function HomePage() {
   const t = useT();
@@ -17,8 +17,7 @@ export default function HomePage() {
   const waitlist = useNearPocketStore((s) => s.waitlist);
   const ensureDemoWaitlist = useNearPocketStore((s) => s.ensureDemoWaitlist);
   const activity = useNearPocketStore((s) => s.activity);
-  const [idrQuote, setIdrQuote] = useState<FxQuote | null>(null);
-  const idrRate = idrQuote?.rate ?? null;
+  const { localFromUsdc, rateLine, meta } = useDisplayFx();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -28,10 +27,6 @@ export default function HomePage() {
     setMounted(true);
     ensureDemoWaitlist();
     if (new URLSearchParams(window.location.search).get("topup")) setTopUpOpen(true);
-    fetch("/api/fx?currency=IDR&amount=10000")
-      .then((r) => r.json())
-      .then((q) => q?.rate && setIdrQuote(q))
-      .catch(() => null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -103,13 +98,9 @@ export default function HomePage() {
           {bal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           <span className="ml-2 text-lg font-semibold text-warm-500">USDC</span>
         </p>
-        <p className="mt-2 text-sm text-warm-600">
-          {idrRate
-            ? `≈ Rp ${Math.round(bal * idrRate).toLocaleString("id-ID")}`
-            : "≈ Rp …"}
-        </p>
-        {idrQuote && (
-          <p className="mt-1 text-[11px] text-warm-500">{formatRateLine(idrQuote)}</p>
+        <p className="mt-2 text-sm text-warm-600">{localFromUsdc(bal)}</p>
+        {rateLine && meta.code !== "USD" && (
+          <p className="mt-1 text-[11px] text-warm-500">{rateLine}</p>
         )}
       </section>
 
