@@ -5,9 +5,10 @@ import { useNearlyStore } from "@/lib/store";
 import { NEAR_CONFIG } from "@/lib/near/config";
 
 /**
- * Wallet connect:
- * - Demo mode always works (zero secrets)
- * - MyNearWallet via wallet-selector when possible, else redirect login URL
+ * Wallet connect via NEAR wallet-selector.
+ * Primary: Meteor Wallet. Also HOT / Intear / NEAR Mobile when modules load.
+ * Demo account always available (zero secrets).
+ * MyNearWallet removed (limited mode).
  */
 export function WalletButton() {
   const accountId = useNearlyStore((s) => s.accountId);
@@ -16,6 +17,7 @@ export function WalletButton() {
   const connectWallet = useNearlyStore((s) => s.connectWallet);
   const disconnect = useNearlyStore((s) => s.disconnect);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -31,41 +33,84 @@ export function WalletButton() {
     }
   }, [connectWallet]);
 
-  function connectMyNearRedirect() {
-    const success = encodeURIComponent(window.location.href.split("?")[0]);
-    window.location.href = `${NEAR_CONFIG.walletUrl}/login/?success_url=${success}&failure_url=${success}`;
-  }
-
-  async function connectMyNear() {
+  async function connectWithSelector() {
     setBusy(true);
+    setError(null);
     try {
       const { setupWalletSelector } = await import("@near-wallet-selector/core");
-      const { setupMyNearWallet } = await import(
-        "@near-wallet-selector/my-near-wallet"
+      const { setupModal } = await import("@near-wallet-selector/modal-ui");
+      await import("@near-wallet-selector/modal-ui/styles.css");
+
+      const { setupMeteorWallet } = await import(
+        "@near-wallet-selector/meteor-wallet"
       );
+
+      const modules = [setupMeteorWallet()];
+
+      try {
+        const { setupHotWallet } = await import(
+          "@near-wallet-selector/hot-wallet"
+        );
+        modules.push(setupHotWallet());
+      } catch {
+        /* optional */
+      }
+      try {
+        const { setupIntearWallet } = await import(
+          "@near-wallet-selector/intear-wallet"
+        );
+        modules.push(setupIntearWallet());
+      } catch {
+        /* optional */
+      }
+      try {
+        const { setupNearMobileWallet } = await import(
+          "@near-wallet-selector/near-mobile-wallet"
+        );
+        modules.push(setupNearMobileWallet());
+      } catch {
+        /* optional */
+      }
+
       const selector = await setupWalletSelector({
         network: NEAR_CONFIG.networkId,
-        modules: [
-          setupMyNearWallet({
-            walletUrl: NEAR_CONFIG.walletUrl,
-          }),
+        modules,
+      });
+
+      const modal = setupModal(selector, {
+        contractId: NEAR_CONFIG.agentPolicyContract || "near",
+        methodNames: [
+          "set_policy",
+          "queue_item",
+          "request_spend",
+          "approve_spend",
+          "reject_spend",
+          "upsert_plan",
         ],
+        theme: "dark",
+        description: "NearPocket — NEAR pocket for real-world money",
       });
-      const wallet = await selector.wallet("my-near-wallet");
-      // Cast: browser wallet signIn only needs contractId
-      const accounts = await (
-        wallet.signIn as (params: {
-          contractId?: string;
-          methodNames?: string[];
-        }) => Promise<Array<{ accountId: string }>>
-      )({
-        contractId: NEAR_CONFIG.agentPolicyContract || undefined,
+
+      modal.show();
+
+      const sub = selector.on("signedIn", ({ accounts }) => {
+        const id = accounts?.[0]?.accountId;
+        if (id) connectWallet(id);
+        modal.hide();
+        sub.remove();
       });
-      const id = accounts?.[0]?.accountId;
-      if (id) connectWallet(id);
-      else connectMyNearRedirect();
-    } catch {
-      connectMyNearRedirect();
+
+      // If already signed in (cached)
+      if (selector.isSignedIn()) {
+        const wallet = await selector.wallet();
+        const accounts = await wallet.getAccounts();
+        const id = accounts?.[0]?.accountId;
+        if (id) connectWallet(id);
+        modal.hide();
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Wallet connect failed";
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -100,9 +145,9 @@ export function WalletButton() {
         type="button"
         className="btn-primary !py-2 !text-xs"
         disabled={busy}
-        onClick={connectMyNear}
+        onClick={connectWithSelector}
       >
-        MyNearWallet
+        {busy ? "Opening…" : "Meteor Wallet"}
       </button>
       <button
         type="button"
@@ -111,6 +156,9 @@ export function WalletButton() {
       >
         Demo account
       </button>
+      {error ? (
+        <p className="max-w-[11rem] text-[10px] text-rose-300">{error}</p>
+      ) : null}
     </div>
   );
 }

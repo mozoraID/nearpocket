@@ -78,7 +78,7 @@ async function maybeLlmReason(
         {
           role: "system",
           content:
-            "You are Nearly's shopping agent. One short sentence on why you queued this item. User stays in control — never claim you already bought.",
+            "You are NearPocket's shopping agent. One short sentence on why you queued this item. User stays in control — never claim you already bought.",
         },
         {
           role: "user",

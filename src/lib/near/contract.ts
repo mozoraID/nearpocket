@@ -19,7 +19,7 @@ async function viewMethod(method: string, args: object = {}) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       jsonrpc: "2.0",
-      id: "nearly",
+      id: "nearpocket",
       method: "query",
       params: {
         request_type: "call_function",

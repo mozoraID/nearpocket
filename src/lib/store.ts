@@ -12,7 +12,7 @@ import type { ShoppingPlan } from "./agent/plans";
 import type { SettlementReceipt } from "./settlement/types";
 import { DEMO_ACCOUNT } from "./near/config";
 
-interface NearlyState {
+interface NearPocketState {
   accountId: string | null;
   demoMode: boolean;
   balanceUsdc: number;
@@ -35,7 +35,7 @@ interface NearlyState {
   creditUsdc: (amount: number) => void;
 }
 
-export const useNearlyStore = create<NearlyState>()(
+export const useNearPocketStore = create<NearPocketState>()(
   persist(
     (set, get) => ({
       accountId: null,
@@ -91,6 +91,9 @@ export const useNearlyStore = create<NearlyState>()(
       creditUsdc: (amount) =>
         set({ balanceUsdc: get().balanceUsdc + amount }),
     }),
-    { name: "nearly-v2" },
+    { name: "nearpocket-v2" },
   ),
 );
+
+/** @deprecated alias — prefer useNearPocketStore */
+export const useNearlyStore = useNearPocketStore;

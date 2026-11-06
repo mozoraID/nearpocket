@@ -1,4 +1,4 @@
-# Nearly agent-policy contract
+# NearPocket agent-policy contract
 
 On-chain spend limits + waitlist for the autonomous shopping agent.
 

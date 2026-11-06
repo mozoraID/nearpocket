@@ -16,7 +16,7 @@ function uid(prefix: string) {
  */
 export const mockPartnerAdapter: SettlementAdapter = {
   id: "mock-pjp",
-  label: "Nearly Sandbox PJP (mock)",
+  label: "NearPocket Sandbox PJP (mock)",
   async settle(req: SettlementRequest): Promise<SettlementReceipt> {
     const now = () => new Date().toISOString();
     const timeline: SettlementReceipt["timeline"] = [
@@ -61,7 +61,7 @@ export const mockPartnerAdapter: SettlementAdapter = {
       complianceNote:
         "Demo only. In Indonesia, crypto is not a payment instrument (BI/OJK). " +
         "Production flow: licensed PJP converts stablecoin → IDR (or local fiat), " +
-        "then pays the merchant via QRIS / card rails. Nearly never sends crypto to merchants.",
+        "then pays the merchant via QRIS / card rails. NearPocket never sends crypto to merchants.",
       mocked: true,
     };
   },

@@ -20,7 +20,7 @@ export default function ScanPage() {
       if (!regionRef.current) return;
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
-        const scanner = new Html5Qrcode("nearly-qr-reader");
+        const scanner = new Html5Qrcode("nearpocket-qr-reader");
         scannerRef.current = scanner;
         setRunning(true);
         await scanner.start(
@@ -31,8 +31,8 @@ export default function ScanPage() {
             setLast(decoded);
             try {
               const parsed = parseEmvQr(decoded);
-              sessionStorage.setItem("nearly_scanned_qr", decoded);
-              sessionStorage.setItem("nearly_scanned_summary", parsed.summary);
+              sessionStorage.setItem("nearpocket_scanned_qr", decoded);
+              sessionStorage.setItem("nearpocket_scanned_summary", parsed.summary);
               scanner.stop().catch(() => undefined);
               router.push("/pay?from=scan");
             } catch {
@@ -68,7 +68,7 @@ export default function ScanPage() {
       </header>
       <DemoBanner />
       <div className="card overflow-hidden p-2">
-        <div id="nearly-qr-reader" ref={regionRef} className="overflow-hidden rounded-2xl" />
+        <div id="nearpocket-qr-reader" ref={regionRef} className="overflow-hidden rounded-2xl" />
       </div>
       {running && <p className="text-xs text-slate-400">Point your camera at a merchant QR…</p>}
       {error && (

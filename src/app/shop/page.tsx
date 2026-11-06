@@ -39,7 +39,7 @@ export default function ShopPage() {
         currencyNumeric: "360",
         amount: amount || undefined,
         guid: "ID.CO.QRIS.WWW",
-        merchantAccount: "93600915NEARLY0001",
+        merchantAccount: "93600915NEARPOCKET01",
         mcc: "5411",
       }),
     [merchantName, amount],
@@ -142,7 +142,7 @@ export default function ShopPage() {
               <QRCodeSVG value={merchantQr} size={180} />
             </div>
             <p className="text-center text-xs text-slate-400">
-              Customers scan with Nearly Pay → USDC → PJP → QRIS credit to you
+              Customers scan with NearPocket Pay → USDC → PJP → QRIS credit to you
             </p>
             <p className="break-all font-mono text-[9px] text-slate-600">{merchantQr}</p>
           </div>

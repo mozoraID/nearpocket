@@ -29,10 +29,10 @@ function PayInner() {
   const [fromToken, setFromToken] = useState("NEAR");
 
   useEffect(() => {
-    const scanned = sessionStorage.getItem("nearly_scanned_qr");
+    const scanned = sessionStorage.getItem("nearpocket_scanned_qr");
     if (scanned) {
       setRaw(scanned);
-      sessionStorage.removeItem("nearly_scanned_qr");
+      sessionStorage.removeItem("nearpocket_scanned_qr");
       setActive("qris");
     }
   }, []);

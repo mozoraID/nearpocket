@@ -44,7 +44,7 @@ export function createXenditAdapter(secretKey: string): SettlementAdapter {
             "api-version": "2022-07-31",
           },
           body: JSON.stringify({
-            reference_id: `nearly_${req.id}_${Date.now()}`,
+            reference_id: `nearpocket_${req.id}_${Date.now()}`,
             type: "DYNAMIC",
             currency: "IDR",
             amount: amountIdr,
