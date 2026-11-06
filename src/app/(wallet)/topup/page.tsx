@@ -1,4 +1,4 @@
 import { redirect } from "next/navigation";
 export default function TopUpRedirect() {
-  redirect("/app?topup=1");
+  redirect("/home?topup=1");
 }

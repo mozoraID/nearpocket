@@ -168,3 +168,18 @@ body {
     transition: none !important;
   }
 }
+
+.np-carousel {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.np-carousel::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .np-carousel {
+    scroll-behavior: auto;
+  }
+}

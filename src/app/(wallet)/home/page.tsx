@@ -15,6 +15,7 @@ export default function HomePage() {
   const t = useT();
   const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
   const waitlist = useNearPocketStore((s) => s.waitlist);
+  const ensureDemoWaitlist = useNearPocketStore((s) => s.ensureDemoWaitlist);
   const activity = useNearPocketStore((s) => s.activity);
   const [idrQuote, setIdrQuote] = useState<FxQuote | null>(null);
   const idrRate = idrQuote?.rate ?? null;
@@ -25,11 +26,13 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true);
+    ensureDemoWaitlist();
     if (new URLSearchParams(window.location.search).get("topup")) setTopUpOpen(true);
     fetch("/api/fx?currency=IDR&amount=10000")
       .then((r) => r.json())
       .then((q) => q?.rate && setIdrQuote(q))
       .catch(() => null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pending = waitlist.filter((w) => w.status === "awaiting_approval");
@@ -60,6 +63,11 @@ export default function HomePage() {
             <div key={w.id} className="rounded-3xl bg-ink p-4 text-cream-100">
               <div className="flex items-center gap-2 text-xs text-cream-400">
                 <Bot className="h-4 w-4" /> {t("home.agentNeedsOk")}
+                {w.mocked || w.notes === "demo" ? (
+                  <span className="rounded-full bg-cream-100/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cream-300">
+                    {t("common.demo")}
+                  </span>
+                ) : null}
               </div>
               <p className="mt-1 font-semibold">{w.title}</p>
               <p className="text-sm text-cream-400">

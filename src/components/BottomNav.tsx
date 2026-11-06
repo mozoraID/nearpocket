@@ -10,7 +10,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const t = useT();
   const items = [
-    { href: "/app", label: t("nav.home"), icon: Home },
+    { href: "/home", label: t("nav.home"), icon: Home },
     { href: "/pay", label: t("nav.pay"), icon: ScanLine },
     { href: "/belanja", label: t("nav.shop"), icon: ShoppingBag },
     { href: "/aktivitas", label: t("nav.activity"), icon: ReceiptText },
@@ -21,8 +21,8 @@ export function BottomNav() {
         <div className="grid grid-cols-4">
           {items.map(({ href, label, icon: Icon }) => {
             const active =
-              href === "/app"
-                ? pathname === "/app" || pathname === "/app/"
+              href === "/home"
+                ? pathname === "/home" || pathname === "/home/"
                 : pathname === href || pathname.startsWith(href + "/");
             return (
               <Link

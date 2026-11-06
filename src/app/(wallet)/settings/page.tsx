@@ -31,7 +31,7 @@ export default function SettingsPage() {
   return (
     <main className="space-y-5">
       <TopBar title={t("settings.title")} />
-      <Link href="/app" className="flex h-10 items-center gap-1 text-sm font-medium">
+      <Link href="/home" className="flex h-10 items-center gap-1 text-sm font-medium">
         <ArrowLeft className="h-4 w-4" /> {t("common.back")}
       </Link>
 

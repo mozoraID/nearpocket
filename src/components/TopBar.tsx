@@ -9,13 +9,18 @@ import { BRAND } from "@/config/brand";
 
 export function TopBar({ title }: { title?: string }) {
   return (
-    <header className="mb-5 flex items-center justify-between gap-2">
-      <div className="min-w-0">
+    <header className="mb-5 flex items-start justify-between gap-2">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Link href="/app" className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink text-sm font-bold text-cream-100">
+          <Link
+            href="/home"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-ink text-sm font-bold text-cream-100"
+          >
             N
           </Link>
-          <span className="truncate text-lg font-semibold tracking-tight">{title || BRAND.displayName}</span>
+          <span className="text-lg font-semibold tracking-tight whitespace-nowrap">
+            {title || BRAND.displayName}
+          </span>
         </div>
         <div className="mt-1.5">
           <DemoPill />

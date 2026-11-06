@@ -23,7 +23,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (accountId) return;
     const qs = searchParams?.toString();
     const next = pathname + (qs ? `?${qs}` : "");
-    router.replace(`/login?next=${encodeURIComponent(next || "/app")}`);
+    router.replace(`/login?next=${encodeURIComponent(next || "/home")}`);
   }, [hydrated, accountId, pathname, searchParams, router]);
 
   if (!hydrated) {

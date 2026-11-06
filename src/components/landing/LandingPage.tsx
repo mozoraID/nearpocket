@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { useEffect, useState } from "react";
 import {
   ScanLine,
   Globe2,
@@ -57,20 +56,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-10% 0px" });
-  const reduce = useReducedMotion();
-  return (
-    <motion.div
-      ref={ref}
-      className={className}
-      initial={reduce ? false : { opacity: 0, y: 28 }}
-      animate={inView || reduce ? { opacity: 1, y: 0 } : undefined}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className={className}>{children}</div>;
 }
 
 export function LandingPage() {
@@ -88,8 +74,8 @@ export function LandingPage() {
   }, []);
 
   const hasSession = mounted && hydrated && Boolean(accountId);
-  const loginHref = "/login?next=%2Fapp";
-  const primaryHref = hasSession ? "/app" : loginHref;
+  const loginHref = "/login?next=%2Fhome";
+  const primaryHref = hasSession ? "/home" : loginHref;
 
   return (
     <div className="min-h-dvh bg-cream-200 text-ink">
@@ -116,19 +102,18 @@ export function LandingPage() {
             <LanguageSwitcher compact />
             {hasSession ? (
               <Link
-                href="/app"
-                className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+                href="/home"
+                className="flex h-10 items-center rounded-full bg-cream-100 px-3.5 text-sm font-semibold ring-1 ring-cream-300"
               >
                 {t("landing.ctaOpenApp")}
               </Link>
-            ) : (
-              <Link
-                href={loginHref}
-                className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
-              >
-                {t("landing.ctaNavSignIn")}
-              </Link>
-            )}
+            ) : null}
+            <Link
+              href={loginHref}
+              className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+            >
+              {t("landing.ctaNavSignIn")}
+            </Link>
           </div>
         </div>
       </header>
@@ -161,7 +146,7 @@ export function LandingPage() {
                     className="btn-outline"
                     onClick={() => {
                       connectDemo();
-                      window.location.href = "/app";
+                      window.location.href = "/home";
                     }}
                   >
                     {t("landing.ctaDemo")}

@@ -13,6 +13,24 @@ import type { SettlementReceipt } from "./settlement/types";
 import { DEMO_ACCOUNT } from "./near/config";
 import { defaultConnectedIds, type MarketplaceId } from "./marketplaces";
 
+/** Sample pending agent approval so Home matches the landing carousel (demo-labeled). */
+export const DEMO_WAITLIST_ITEM: WaitlistItem = {
+  id: "demo_earbuds_ok",
+  title: "Wireless earbuds",
+  merchant: "Tokopedia",
+  category: "electronics",
+  targetPriceUsdc: 20,
+  currentPriceUsdc: 18.5,
+  maxBudgetUsdc: 20,
+  status: "awaiting_approval",
+  marketplace: "Tokopedia",
+  mocked: true,
+  agentReason: "Demo sample — approve or reject. Labeled demo.",
+  notes: "demo",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export type ActivityKind = "payment" | "agent" | "topup" | "purchase" | "card";
 
 export interface ActivityEntry {
@@ -72,6 +90,8 @@ interface NearPocketState {
   toggleMarketplace: (id: MarketplaceId) => void;
   setCard: (patch: Partial<VirtualCard>) => void;
   topUpCard: (amountUsdc: number) => void;
+  /** Seed one demo pending approval when waitlist is empty (fresh/demo accounts). */
+  ensureDemoWaitlist: () => void;
 }
 
 function randomLast4() {
@@ -117,6 +137,10 @@ export const useNearPocketStore = create<NearPocketState>()(
           demoMode: true,
           authMethod: "demo",
           balanceUsdc: get().balanceUsdc || DEMO_ACCOUNT.displayBalanceUsdc,
+          waitlist:
+            get().waitlist.length > 0
+              ? get().waitlist
+              : [{ ...DEMO_WAITLIST_ITEM, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
         }),
       connectWallet: (accountId, method = "selector") =>
         set({ accountId, demoMode: false, authMethod: method }),
@@ -169,6 +193,20 @@ export const useNearPocketStore = create<NearPocketState>()(
         });
       },
       setCard: (patch) => set({ card: { ...get().card, ...patch } }),
+      ensureDemoWaitlist: () => {
+        if (get().waitlist.some((w) => w.status === "awaiting_approval")) return;
+        if (get().waitlist.some((w) => w.id === DEMO_WAITLIST_ITEM.id)) return;
+        set({
+          waitlist: [
+            {
+              ...DEMO_WAITLIST_ITEM,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            ...get().waitlist,
+          ].slice(0, 50),
+        });
+      },
       topUpCard: (amountUsdc) => {
         const st = get();
         if (amountUsdc <= 0 || amountUsdc > st.balanceUsdc) return;
