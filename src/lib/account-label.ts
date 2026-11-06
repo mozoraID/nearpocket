@@ -1,11 +1,12 @@
 /** Short, human label for the header chip — never the full raw address. */
 export function shortAccountLabel(
   accountId: string | null | undefined,
-  // authMethod reserved for future method-specific labels
   authMethod?: string,
 ): string {
-  void authMethod;
   if (!accountId) return "Account";
+  if (authMethod === "demo" || accountId === "demo.local" || accountId.startsWith("demo.")) {
+    return "Demo";
+  }
   // Named NEAR accounts
   if (accountId.endsWith(".near") || accountId.endsWith(".testnet")) {
     const base = accountId.split(".")[0];
@@ -28,7 +29,10 @@ export function shortAccountLabel(
   return accountId.length > 14 ? `${accountId.slice(0, 12)}…` : accountId;
 }
 
-export function accountInitials(accountId: string | null | undefined): string {
+export function accountInitials(accountId: string | null | undefined, authMethod?: string): string {
+  if (authMethod === "demo" || accountId === "demo.local" || (accountId || "").startsWith("demo.")) {
+    return "D";
+  }
   if (!accountId) return "?";
   if (accountId.startsWith("privy:")) {
     const rest = accountId.slice(6);
@@ -46,4 +50,19 @@ export function avatarHue(accountId: string): number {
   let h = 0;
   for (let i = 0; i < accountId.length; i++) h = (h * 31 + accountId.charCodeAt(i)) % 360;
   return h;
+}
+
+/** Human method label for account sheet / settings */
+export function authMethodLabel(method: string | undefined, demoMode?: boolean): string {
+  if (demoMode || method === "demo") return "Demo";
+  switch (method) {
+    case "privy":
+      return "Google";
+    case "selector":
+      return "Wallet";
+    case "local":
+      return "Browser wallet";
+    default:
+      return method || "Account";
+  }
 }

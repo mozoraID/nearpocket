@@ -24,8 +24,8 @@ function SignOutButtonInner({ privyLogout }: { privyLogout?: () => Promise<void>
   }
 
   return (
-    <button type="button" className="btn-secondary w-full" disabled={busy} onClick={onClick}>
-      <LogOut className="h-4 w-4" /> {busy ? "Signing out…" : t("auth.signOutSwitch")}
+    <button type="button" className="btn-danger w-full" disabled={busy} onClick={onClick}>
+      <LogOut className="h-4 w-4" /> {busy ? "Signing out…" : t("auth.signOut")}
     </button>
   );
 }
@@ -42,7 +42,6 @@ function SignOutWithPrivy() {
 }
 
 export function SignOutButton() {
-  // usePrivy requires PrivyProvider — only mount the hook branch when App ID is set
   if (PRIVY_APP_ID) return <SignOutWithPrivy />;
   return <SignOutButtonInner />;
 }

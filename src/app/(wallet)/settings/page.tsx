@@ -5,10 +5,12 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { TopBar } from "@/components/TopBar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { SignOutButton } from "@/components/SignOutButton";
 import { useI18n, useT } from "@/lib/i18n";
 import { useNearPocketStore } from "@/lib/store";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { formatRateLine, type FxQuote } from "@/lib/fx/quote";
+import { authMethodLabel } from "@/lib/account-label";
 import { BRAND } from "@/config/brand";
 
 export default function SettingsPage() {
@@ -27,6 +29,7 @@ export default function SettingsPage() {
   }, []);
 
   const loc = locales.find((l) => l.id === locale);
+  const method = authMethodLabel(authMethod, demoMode);
 
   return (
     <main className="space-y-5">
@@ -37,7 +40,7 @@ export default function SettingsPage() {
 
       <section className="card space-y-3">
         <h2 className="font-semibold">{t("settings.language")}</h2>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <span className="text-sm text-warm-600">
             {loc?.flag} {loc?.native}
           </span>
@@ -47,15 +50,13 @@ export default function SettingsPage() {
 
       <section className="card space-y-2">
         <h2 className="font-semibold">{t("settings.account")}</h2>
-        <p className="break-all text-sm">
-          {accountId || "—"}
-          <span className="ml-2 text-xs text-warm-500">
-            {demoMode ? "demo" : authMethod} · {NEAR_CONFIG.networkId}
-          </span>
+        <p className="break-all text-sm font-medium">{accountId || "—"}</p>
+        <p className="text-xs text-warm-500">
+          {method} · {NEAR_CONFIG.networkId}
         </p>
         {accountId && !demoMode && (
           <a className="text-sm underline" href={explorerAccountUrl(accountId)} target="_blank" rel="noreferrer">
-            Explorer
+            {t("auth.viewExplorer")}
           </a>
         )}
       </section>
@@ -80,6 +81,10 @@ export default function SettingsPage() {
         <p className="text-xs text-warm-500">
           Contract {NEAR_CONFIG.agentPolicyContract} · {BRAND.displayName}
         </p>
+      </section>
+
+      <section className="pt-2">
+        <SignOutButton />
       </section>
     </main>
   );

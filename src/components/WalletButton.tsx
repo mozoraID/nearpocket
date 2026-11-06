@@ -3,13 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wallet, LogOut, Copy, KeyRound } from "lucide-react";
+import { Wallet, LogOut, Copy, KeyRound, Settings } from "lucide-react";
 import { useNearPocketStore } from "@/lib/store";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { useT } from "@/lib/i18n";
 import { Sheet } from "./Sheet";
 import { loadLocalWalletRecord, requestTestnetFaucet, unlockSecretKey } from "@/lib/wallet/local";
-import { accountInitials, avatarHue, shortAccountLabel } from "@/lib/account-label";
+import {
+  accountInitials,
+  avatarHue,
+  shortAccountLabel,
+  authMethodLabel,
+} from "@/lib/account-label";
 import { fullSignOut } from "@/lib/auth/sign-out";
 import { usePrivy } from "@privy-io/react-auth";
 import { PRIVY_APP_ID } from "./PrivyClientProvider";
@@ -31,11 +36,13 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
   const [faucetMsg, setFaucetMsg] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
+  // Inside the app, any accountId (including demo) is a signed-in session
   const hasSession = Boolean(accountId);
-  const isDemo = Boolean(accountId && demoMode);
+  const isDemo = Boolean(accountId && (demoMode || authMethod === "demo"));
   const label = shortAccountLabel(accountId, authMethod);
-  const initials = accountInitials(accountId);
-  const hue = accountId ? avatarHue(accountId) : 0;
+  const initials = accountInitials(accountId, authMethod);
+  const hue = accountId ? (isDemo ? 32 : avatarHue(accountId)) : 0;
+  const methodLabel = authMethodLabel(authMethod, isDemo);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -52,7 +59,6 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
       window.history.replaceState({}, "", url.pathname + url.search);
       return;
     }
-    // Only restore local wallet into an empty store when not suppressed
     const local = loadLocalWalletRecord();
     if (local && !accountId) {
       connectWallet(local.accountId, "local");
@@ -97,18 +103,18 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
     } catch { /* */ }
     await fullSignOut({ privyLogout });
     setOpen(false);
-    // Hard navigate to landing in signed-out state (clears any soft-nav cache)
     window.location.assign("/");
   }
 
-  if (!hasSession || isDemo) {
+  // Outside a session (shouldn't happen inside AuthGate) — offer Sign in
+  if (!hasSession) {
     return (
       <Link
         href={`/login?next=${encodeURIComponent(pathname || "/home")}`}
         className="flex h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream-100"
       >
         <Wallet className="h-4 w-4" />
-        <span className="sm:inline">{t("auth.signIn")}</span>
+        <span>{t("auth.signIn")}</span>
       </Link>
     );
   }
@@ -119,7 +125,7 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t("auth.yourWallet")}
-        className="flex h-10 max-w-[7.5rem] items-center gap-1.5 rounded-full bg-cream-100 pl-1 pr-2.5 ring-1 ring-cream-300"
+        className="flex h-10 max-w-[8.5rem] items-center gap-1.5 rounded-full bg-cream-100 pl-1 pr-2.5 ring-1 ring-cream-300"
       >
         <span
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-cream-100"
@@ -143,22 +149,35 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
       >
         <div className="space-y-4">
           <div className="rounded-2xl bg-cream-200 p-4">
-            <p className="text-xs text-warm-600">
-              {t("auth.connected", { network: NEAR_CONFIG.networkId })} · {authMethod}
-            </p>
-            <p className="mt-2 break-all text-sm font-semibold leading-snug">{accountId}</p>
+            <div className="flex items-center gap-3">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-cream-100"
+                style={{ background: `hsl(${hue} 42% 32%)` }}
+              >
+                {initials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{label}</p>
+                <p className="text-xs text-warm-600">
+                  {methodLabel} · {NEAR_CONFIG.networkId}
+                </p>
+              </div>
+            </div>
+            <p className="mt-3 break-all text-xs leading-snug text-warm-600">{accountId}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" className="btn-secondary !h-9 !px-3 !text-xs" onClick={copyAddress}>
-                <Copy className="h-3.5 w-3.5" /> {copied ? t("auth.copiedKey") : "Copy address"}
+                <Copy className="h-3.5 w-3.5" /> {copied ? t("auth.copiedKey") : "Copy"}
               </button>
-              <a
-                className="btn-outline !h-9 !px-3 !text-xs"
-                href={explorerAccountUrl(accountId!)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("auth.viewExplorer")}
-              </a>
+              {!isDemo && (
+                <a
+                  className="btn-outline !h-9 !px-3 !text-xs"
+                  href={explorerAccountUrl(accountId!)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("auth.viewExplorer")}
+                </a>
+              )}
             </div>
           </div>
 
@@ -190,7 +209,20 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
             </>
           )}
 
-          <button type="button" className="btn-secondary w-full" disabled={signingOut} onClick={onSignOut}>
+          <Link
+            href="/settings"
+            onClick={() => setOpen(false)}
+            className="btn-secondary w-full"
+          >
+            <Settings className="h-4 w-4" /> {t("settings.title")}
+          </Link>
+
+          <button
+            type="button"
+            className="btn-danger w-full"
+            disabled={signingOut}
+            onClick={onSignOut}
+          >
             <LogOut className="h-4 w-4" /> {signingOut ? "Signing out…" : t("auth.signOut")}
           </button>
         </div>
@@ -199,7 +231,6 @@ function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> 
   );
 }
 
-/** Wire Privy logout when the provider is configured. */
 function WalletButtonWithPrivy() {
   const { logout } = usePrivy();
   return <WalletButtonInner privyLogout={async () => { await logout(); }} />;

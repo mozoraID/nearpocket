@@ -65,6 +65,7 @@ export function LoginPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
+  const switchAccount = searchParams.get("switch") === "1";
 
   const accountId = useNearPocketStore((s) => s.accountId);
   const authMethod = useNearPocketStore((s) => s.authMethod);
@@ -121,7 +122,13 @@ export function LoginPanel() {
     // or when WalletButton restores it inside a gated /home session.
   }, [hydrated, connectWallet, accountId]);
 
-  const signedIn = hydrated && Boolean(accountId); // demo or real — show Continue, never auto-redirect
+  const signedIn = hydrated && Boolean(accountId);
+
+  // Already signed in → go straight to app (no interstitial), unless ?switch=1
+  useEffect(() => {
+    if (!hydrated || !accountId || switchAccount) return;
+    router.replace(next);
+  }, [hydrated, accountId, switchAccount, next, router]);
 
   function goApp() {
     router.replace(next);
@@ -245,14 +252,14 @@ export function LoginPanel() {
 
   const hue = accountId ? avatarHue(accountId) : 0;
 
-  if (!hydrated) {
+  if (!hydrated || (signedIn && !switchAccount)) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-cream-200 text-ink">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-sm font-bold text-cream-100">
           NP
         </span>
         <p className="text-sm font-medium">{BRAND.displayName}</p>
-        <p className="text-xs text-warm-500">Loading…</p>
+        <p className="text-xs text-warm-500">{signedIn ? "Opening app…" : "Loading…"}</p>
       </div>
     );
   }
@@ -269,7 +276,7 @@ export function LoginPanel() {
       </header>
 
       <main className="mx-auto w-full max-w-lg px-4 py-8 sm:py-10">
-        {signedIn && stage === "menu" ? (
+        {signedIn && switchAccount && stage === "menu" ? (
           <div className="space-y-6">
             <div className="text-center">
               <span

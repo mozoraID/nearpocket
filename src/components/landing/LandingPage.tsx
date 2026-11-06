@@ -13,10 +13,8 @@ import {
   FlaskConical,
   ChevronDown,
   Code2,
-  ArrowRight,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { useNearPocketStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { BRAND } from "@/config/brand";
 import { ProductCarousel } from "./ProductCarousel";
@@ -60,10 +58,42 @@ function Reveal({ children, className }: { children: React.ReactNode; className?
   return <div className={className}>{children}</div>;
 }
 
+
+function LandingAvatar({
+  accountId,
+  authMethod,
+  demoMode,
+}: {
+  accountId: string | null;
+  authMethod: string;
+  demoMode: boolean;
+}) {
+  const isDemo = demoMode || authMethod === "demo";
+  const initials = isDemo
+    ? "D"
+    : accountId
+      ? accountId.startsWith("privy:")
+        ? (accountId.slice(6).split("@")[0][0] || "G").toUpperCase()
+        : accountId[0].toUpperCase()
+      : "?";
+  let hue = 32;
+  if (accountId && !isDemo) {
+    hue = 0;
+    for (let i = 0; i < accountId.length; i++) hue = (hue * 31 + accountId.charCodeAt(i)) % 360;
+  }
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-cream-100"
+      style={{ background: `hsl(${hue} 42% 32%)` }}
+    >
+      {initials}
+    </span>
+  );
+}
+
 export function LandingPage() {
   const t = useT();
-  const connectDemo = useNearPocketStore((s) => s.connectDemo);
-  const { phase } = useAuthSession();
+  const { phase, accountId, authMethod, demoMode } = useAuthSession();
   useEffect(() => {
     try {
       sessionStorage.removeItem("nearpocket-signing-out");
@@ -98,18 +128,20 @@ export function LandingPage() {
           <div className="flex min-h-10 items-center gap-2">
             <LanguageSwitcher compact />
             {authLoading ? (
-              <span className="h-10 w-24 animate-pulse rounded-full bg-cream-300/80" aria-hidden />
+              <span className="h-10 w-10 animate-pulse rounded-full bg-cream-300/80" aria-hidden />
             ) : hasSession ? (
               <a
                 href="/home"
-                className="flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+                aria-label={t("landing.ctaOpenApp")}
+                className="flex h-10 max-w-[9rem] items-center gap-1.5 rounded-full bg-cream-100 pl-1 pr-2.5 ring-1 ring-cream-300"
               >
-                {t("landing.ctaOpenApp")}
+                <LandingAvatar accountId={accountId} authMethod={authMethod} demoMode={demoMode} />
+                <span className="truncate text-xs font-medium">{t("landing.ctaOpenApp")}</span>
               </a>
             ) : (
               <Link
                 href={loginHref}
-                className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+                className="flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
               >
                 {t("landing.ctaNavSignIn")}
               </Link>
@@ -119,57 +151,27 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-16 pt-10 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-14 lg:pt-16">
-          <div>
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-xs font-medium ring-1 ring-cream-300">
+        <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-12 pt-12 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-14 lg:pb-20 lg:pt-20">
+          <div className="flex flex-col">
+            <p className="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-xs font-medium ring-1 ring-cream-300">
               <FlaskConical className="h-3.5 w-3.5" />
               {t("landing.badge")}
             </p>
-            <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl lg:text-[3.25rem]">
+            <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.25rem]">
               {t("landing.heroTitle")}
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-warm-600 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-warm-600 sm:text-lg">
               {t("landing.heroSub")}
             </p>
-            <div className="mt-8 flex min-h-12 flex-wrap gap-3">
-              {authLoading ? (
-                <>
-                  <span className="h-12 w-36 animate-pulse rounded-full bg-cream-300/80" aria-hidden />
-                  <span className="h-12 w-28 animate-pulse rounded-full bg-cream-300/60" aria-hidden />
-                </>
-              ) : hasSession ? (
-                <>
-                  <a href="/home" className="btn-primary">
-                    {t("landing.ctaOpenApp")}
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                  <Link href="/login?next=%2Fhome" className="btn-outline">
-                    {t("auth.signOutSwitch")}
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href={loginHref} className="btn-primary">
-                    {t("landing.ctaLaunch")}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link href={loginHref} className="btn-secondary">
-                    {t("landing.ctaSignIn")}
-                  </Link>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    onClick={() => {
-                      try { sessionStorage.removeItem("nearpocket-suppress-restore"); } catch { /* */ }
-                      connectDemo();
-                      window.location.href = "/home";
-                    }}
-                  >
-                    {t("landing.ctaDemo")}
-                  </button>
-                </>
-              )}
-            </div>
+            <a
+              href="#features"
+              className="mt-10 inline-flex w-fit items-center gap-2 text-sm font-medium text-warm-500 transition hover:text-ink"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cream-100 ring-1 ring-cream-300">
+                <ChevronDown className="h-4 w-4 animate-bounce" />
+              </span>
+              {t("landing.navFeatures")}
+            </a>
           </div>
 
           <ProductCarousel />
@@ -311,14 +313,6 @@ export function LandingPage() {
             >
               <Code2 className="h-4 w-4" /> {t("landing.footerGithub")}
             </a>
-            {authLoading ? null : (
-              <Link
-                href={hasSession ? "/home" : loginHref}
-                className="font-medium underline-offset-2 hover:underline"
-              >
-                {hasSession ? t("landing.ctaOpenApp") : t("landing.ctaLaunch")}
-              </Link>
-            )}
           </div>
         </div>
       </footer>
