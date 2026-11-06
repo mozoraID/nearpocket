@@ -1,6 +1,6 @@
 /**
  * FX quotes: USDC (treated ~ USD) → local fiat.
- * Uses Frankfurter (ECB) when online; falls back to baked demo rates.
+ * Primary: Frankfurter (ECB). Cross-check: open.er-api.com.
  */
 
 export interface FxQuote {
@@ -9,7 +9,10 @@ export interface FxQuote {
   rate: number;
   amountLocal: number;
   amountUsdc: number;
-  source: "frankfurter" | "fallback";
+  source: "frankfurter" | "exchangerate-api" | "fallback";
+  /** Secondary source rate when cross-checked */
+  crossCheckRate?: number;
+  crossCheckSource?: string;
   asOf: string;
   feeBps: number;
   feeUsdc: number;
@@ -17,7 +20,7 @@ export interface FxQuote {
 }
 
 const FALLBACK_USD: Record<string, number> = {
-  IDR: 16250,
+  IDR: 18069,
   THB: 33.5,
   MYR: 4.35,
   SGD: 1.32,
@@ -29,6 +32,42 @@ const FALLBACK_USD: Record<string, number> = {
 
 const FEE_BPS = 35; // 0.35% demo partner fee
 
+async function frankfurter(ccy: string): Promise<{ rate: number; asOf: string } | null> {
+  try {
+    const res = await fetch(
+      `https://api.frankfurter.app/latest?from=USD&to=${encodeURIComponent(ccy)}`,
+      { next: { revalidate: 300 } },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { rates: Record<string, number>; date: string };
+    if (!data.rates?.[ccy]) return null;
+    return { rate: data.rates[ccy], asOf: `${data.date}T00:00:00.000Z` };
+  } catch {
+    return null;
+  }
+}
+
+async function openErApi(ccy: string): Promise<{ rate: number; asOf: string } | null> {
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      rates?: Record<string, number>;
+      time_last_update_utc?: string;
+      result?: string;
+    };
+    if (data.result !== "success" || !data.rates?.[ccy]) return null;
+    const asOf = data.time_last_update_utc
+      ? new Date(data.time_last_update_utc).toISOString()
+      : new Date().toISOString();
+    return { rate: data.rates[ccy], asOf };
+  } catch {
+    return null;
+  }
+}
+
 export async function quoteLocalToUsdc(
   currency: string,
   amountLocal: number,
@@ -37,26 +76,27 @@ export async function quoteLocalToUsdc(
   let rate = FALLBACK_USD[ccy];
   let source: FxQuote["source"] = "fallback";
   let asOf = new Date().toISOString();
+  let crossCheckRate: number | undefined;
+  let crossCheckSource: string | undefined;
 
   if (ccy !== "USD" && ccy !== "USDC") {
-    try {
-      const res = await fetch(
-        `https://api.frankfurter.app/latest?from=USD&to=${encodeURIComponent(ccy)}`,
-        { next: { revalidate: 300 } },
-      );
-      if (res.ok) {
-        const data = (await res.json()) as {
-          rates: Record<string, number>;
-          date: string;
-        };
-        if (data.rates?.[ccy]) {
-          rate = data.rates[ccy];
-          source = "frankfurter";
-          asOf = `${data.date}T00:00:00.000Z`;
-        }
-      }
-    } catch {
-      /* use fallback */
+    const [primary, secondary] = await Promise.all([frankfurter(ccy), openErApi(ccy)]);
+    if (primary) {
+      rate = primary.rate;
+      source = "frankfurter";
+      asOf = primary.asOf;
+    } else if (secondary) {
+      rate = secondary.rate;
+      source = "exchangerate-api";
+      asOf = secondary.asOf;
+    }
+    if (secondary && primary) {
+      crossCheckRate = secondary.rate;
+      crossCheckSource = "open.er-api.com";
+    } else if (primary && !secondary) {
+      /* no cross */
+    } else if (!primary && secondary) {
+      /* already primary */
     }
   } else {
     rate = 1;
@@ -74,6 +114,8 @@ export async function quoteLocalToUsdc(
     amountLocal,
     amountUsdc: round6(amountUsdc),
     source,
+    crossCheckRate,
+    crossCheckSource,
     asOf,
     feeBps: FEE_BPS,
     feeUsdc: round6(feeUsdc),
@@ -115,4 +157,27 @@ export function formatUsdc(amount: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 6,
   })} USDC`;
+}
+
+/** Format rate line with source + time for UI */
+export function formatRateLine(q: FxQuote) {
+  const rateStr = q.rate.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  const when = new Date(q.asOf).toLocaleString("en-GB", {
+    timeZone: "Asia/Jakarta",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const src =
+    q.source === "frankfurter"
+      ? "Frankfurter/ECB"
+      : q.source === "exchangerate-api"
+        ? "open.er-api"
+        : "fallback";
+  const cross = q.crossCheckRate
+    ? ` · cross-check ${q.crossCheckSource}: ${q.crossCheckRate.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+    : "";
+  return `1 USDC = ${rateStr} ${q.quote} · ${src}${cross} · ${when} WIB`;
 }

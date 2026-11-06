@@ -4,16 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, ScanLine, ShoppingBag, ReceiptText } from "lucide-react";
 import clsx from "clsx";
-
-const items = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/pay", label: "Bayar", icon: ScanLine },
-  { href: "/belanja", label: "Belanja", icon: ShoppingBag },
-  { href: "/aktivitas", label: "Aktivitas", icon: ReceiptText },
-];
+import { useT } from "@/lib/i18n";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const t = useT();
+  const items = [
+    { href: "/", label: t("nav.home"), icon: Home },
+    { href: "/pay", label: t("nav.pay"), icon: ScanLine },
+    { href: "/belanja", label: t("nav.shop"), icon: ShoppingBag },
+    { href: "/aktivitas", label: t("nav.activity"), icon: ReceiptText },
+  ];
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40">
       <div className="mx-auto w-full max-w-[440px] border-t border-cream-300 bg-cream-100/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">

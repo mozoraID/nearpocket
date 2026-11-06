@@ -6,7 +6,12 @@ import { useNearPocketStore } from "@/lib/store";
 /** POST /api/settle, then debit the demo balance, store the receipt and log activity. */
 export async function settleAndRecord(
   req: SettlementRequest,
-  opts: { kind?: "payment" | "purchase"; title?: string } = {},
+  opts: {
+    kind?: "payment" | "purchase" | "card";
+    title?: string;
+    /** Only agent/shop purchases count toward on-chain spend policy */
+    countTowardAgentPolicy?: boolean;
+  } = {},
 ): Promise<SettlementReceipt> {
   const res = await fetch("/api/settle", {
     method: "POST",
@@ -16,7 +21,11 @@ export async function settleAndRecord(
   const data = (await res.json()) as SettlementReceipt & { error?: string };
   if (!res.ok) throw new Error(data.error || "Payment failed");
   const st = useNearPocketStore.getState();
-  if (data.status !== "failed") st.debitUsdc(req.quote.totalUsdc);
+  if (data.status !== "failed") {
+    st.debitUsdc(req.quote.totalUsdc, {
+      countTowardAgentPolicy: Boolean(opts.countTowardAgentPolicy),
+    });
+  }
   st.recordReceipt(data);
   st.logActivity({
     kind: opts.kind || "payment",

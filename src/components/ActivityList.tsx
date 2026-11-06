@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight, Bot, ShoppingBag } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bot, CreditCard, ShoppingBag } from "lucide-react";
 import type { ActivityEntry } from "@/lib/store";
 import { StatusBadge } from "./StatusBadge";
 
-const ICON = { payment: ArrowUpRight, purchase: ShoppingBag, topup: ArrowDownLeft, agent: Bot };
+const ICON: Record<string, typeof ArrowUpRight> = { payment: ArrowUpRight, purchase: ShoppingBag, topup: ArrowDownLeft, agent: Bot, card: CreditCard };
 
 function when(iso: string) {
   const d = new Date(iso);

@@ -2,8 +2,13 @@ export type MarketplaceId =
   | "tokopedia"
   | "shopee"
   | "lazada"
+  | "blibli"
+  | "rakuten"
+  | "amazon-jp"
+  | "coupang"
   | "amazon"
   | "ebay"
+  | "aliexpress"
   | "demo-mart";
 
 export interface MarketplaceOffer {
@@ -15,6 +20,10 @@ export interface MarketplaceOffer {
   currencyLocal?: string;
   priceLocal?: number;
   url: string;
+  /** Real product page or marketplace search URL */
+  productUrl?: string;
+  imageUrl?: string;
+  description?: string;
   inStock: boolean;
   rating?: number;
   shippingDays?: number;
@@ -26,6 +35,8 @@ export interface MarketplaceSearchQuery {
   query: string;
   maxPriceUsdc?: number;
   category?: string;
+  /** Only search these marketplace ids (connected) */
+  only?: MarketplaceId[];
 }
 
 export interface MarketplaceAdapter {

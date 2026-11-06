@@ -11,10 +11,11 @@ import { ReceiptView } from "@/components/ReceiptView";
 import { DemoPill } from "@/components/DemoBanner";
 import { parseEmvQr, type ParsedQrPayment } from "@/lib/qris/parser";
 import { SAMPLE_QRS, type SampleKey } from "@/lib/qris/samples";
-import { formatFiat, formatUsdc, type FxQuote } from "@/lib/fx/quote";
+import { formatFiat, formatUsdc, formatRateLine, type FxQuote } from "@/lib/fx/quote";
 import { buildCardSettlement, buildQrisSettlement, type SettlementReceipt, type SettlementRequest } from "@/lib/settlement";
 import { useNearPocketStore } from "@/lib/store";
 import { settleAndRecord, COUNTRY_FLAG } from "@/lib/client/pay";
+import { WorldCardView } from "@/components/WorldCardView";
 
 type Stage = "scan" | "confirm" | "world" | "paying" | "done";
 type PayWith = "USDC" | "NEAR";
@@ -243,7 +244,7 @@ function PayInner() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream-300"><Globe className="h-5 w-5" /></span>
               <span className="flex-1">
                 <span className="block font-semibold">Pay worldwide</span>
-                <span className="text-xs text-warm-600">No QR? Card or payment link</span>
+                <span className="text-xs text-warm-600">NearPocket Card · virtual debit</span>
               </span>
             </button>
             <Link href="/merchant" className="flex w-full items-center gap-3 py-4">
@@ -347,41 +348,21 @@ function PayInner() {
     );
   }
 
-  // ───────────────────────── Worldwide
+  // ───────────────────────── Worldwide = NearPocket Card
   if (stage === "world") {
-    return (
-      <main className="space-y-5">
-        <button type="button" onClick={reset} className="flex h-10 items-center gap-1 text-sm font-medium">
-          <ArrowLeft className="h-4 w-4" /> Back to scan
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Pay worldwide</h1>
-          <p className="mt-1 text-sm text-warm-600">For places without QR. NEAR Intents turns your tokens into USDC, then a card pays.</p>
-        </div>
-        <div className="card space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-sm text-warm-600">Store or payment link</span>
-            <input className="input" value={wMerchant} onChange={(e) => setWMerchant(e.target.value)} />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-warm-600">Amount (USD)</span>
-            <input className="input text-2xl font-semibold" inputMode="decimal" value={wAmount} onChange={(e) => setWAmount(e.target.value)} />
-          </label>
-          {PayWithToggle}
-          {payWith === "NEAR" && nearPerUsdc && parseFloat(wAmount) > 0 && (
-            <p className="text-sm text-warm-600">
-              ≈ {(parseFloat(wAmount) / nearPerUsdc.usdcPerNear).toFixed(3)} NEAR via NEAR Intents
-              {nearPerUsdc.real ? " · live 1Click quote" : " · estimate"}
-            </p>
-          )}
-        </div>
-        {error && <p className="rounded-2xl bg-[#f4dcd6] px-4 py-3 text-sm text-[#8a2d1c]">{error}</p>}
-        <button type="button" className="btn-primary w-full" onClick={payWorld}>
-          Pay ${parseFloat(wAmount) > 0 ? parseFloat(wAmount).toFixed(2) : "0.00"}
-        </button>
-        <p className="text-center text-xs text-warm-500">Virtual card is a demo. No real card is charged.</p>
-      </main>
-    );
+    return <WorldCardView
+      reset={reset}
+      wMerchant={wMerchant}
+      setWMerchant={setWMerchant}
+      wAmount={wAmount}
+      setWAmount={setWAmount}
+      PayWithToggle={PayWithToggle}
+      payWith={payWith}
+      nearPerUsdc={nearPerUsdc}
+      error={error}
+      payWorld={payWorld}
+      setError={setError}
+    />;
   }
 
   // ───────────────────────── Confirm
@@ -427,11 +408,12 @@ function PayInner() {
           )}
           <p className="mt-2 text-sm text-warm-600">
             {quote
-              ? `≈ ${formatUsdc(quote.totalUsdc)} · 1 USDC = ${quote.rate.toLocaleString()} ${quote.quote} · fee ${quote.feeBps / 100}%`
+              ? `≈ ${formatUsdc(quote.totalUsdc)} · fee ${quote.feeBps / 100}%`
               : localAmount
                 ? "Getting rate…"
                 : " "}
           </p>
+          {quote && <p className="mt-1 text-[11px] text-warm-500">{formatRateLine(quote)}</p>}
         </div>
       </section>
 
@@ -454,9 +436,24 @@ function PayInner() {
   );
 }
 
+function PayFallback() {
+  return (
+    <main className="-mx-5 -mt-4">
+      <div className="relative h-[min(62dvh,560px)] w-full bg-ink/90" />
+      <div className="space-y-3 px-5 pt-5">
+        <div className="h-14 animate-pulse rounded-full bg-cream-300" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="h-12 animate-pulse rounded-full bg-cream-300" />
+          <div className="h-12 animate-pulse rounded-full bg-cream-300" />
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export default function PayPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-warm-600">Loading…</p>}>
+    <Suspense fallback={<PayFallback />}>
       <PayInner />
     </Suspense>
   );

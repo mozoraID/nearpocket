@@ -1,10 +1,12 @@
 "use client";
 
 import { BottomNav } from "./BottomNav";
+import { AgentChatBubble } from "./agent/AgentChatBubble";
+import { LanguageProvider } from "@/lib/i18n";
 import { useNearPocketStore } from "@/lib/store";
 import { useEffect } from "react";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function ShellInner({ children }: { children: React.ReactNode }) {
   const connectDemo = useNearPocketStore((s) => s.connectDemo);
   const accountId = useNearPocketStore((s) => s.accountId);
 
@@ -18,6 +20,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <BottomNav />
+      <AgentChatBubble />
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <LanguageProvider>
+      <ShellInner>{children}</ShellInner>
+    </LanguageProvider>
   );
 }

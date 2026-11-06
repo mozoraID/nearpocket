@@ -22,7 +22,7 @@ export async function approveWaitlistItem(item: WaitlistItem) {
     destination: item.url || `agent_waitlist:${item.id}`,
   });
   req.note = `Agent purchase after user approval. Policy: daily ${st.policy.dailyLimitUsdc}, per-item ${st.policy.perItemMaxUsdc} USDC.`;
-  const receipt = await settleAndRecord(req, { kind: "purchase", title: item.title });
+  const receipt = await settleAndRecord(req, { kind: "purchase", title: item.title, countTowardAgentPolicy: true });
   st.updateWaitlist(item.id, {
     status: receipt.status === "failed" ? "awaiting_approval" : "purchased",
     agentReason:

@@ -17,10 +17,14 @@
     "@near-wallet-selector/meteor-wallet": "^10.1.4",
     "@near-wallet-selector/modal-ui": "^10.1.4",
     "@near-wallet-selector/near-mobile-wallet": "^10.1.4",
+    "@noble/hashes": "^2.4.0",
+    "@scure/bip39": "^2.4.0",
+    "bip39": "^3.1.2",
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.70.0",
     "near-api-js": "^7.4.0",
+    "near-seed-phrase": "^0.2.1",
     "next": "15.5.29",
     "qrcode.react": "^4.2.0",
     "react": "19.1.0",
@@ -39,5 +43,5 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "description": "NearPocket \u2014 Your NEAR pocket for real-world money. QRIS, Intents, merchant shopping & agent waitlists."
+  "description": "NearPocket — Your NEAR pocket for real-world money. QRIS, Intents, merchant shopping & agent waitlists."
 }

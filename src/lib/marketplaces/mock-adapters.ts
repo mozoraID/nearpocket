@@ -4,6 +4,7 @@ import type {
   MarketplaceSearchQuery,
   MarketplaceId,
 } from "./types";
+import { MARKETPLACE_CATALOG, metaFor } from "./catalog";
 
 const CATALOG: Record<
   string,
@@ -43,10 +44,14 @@ const CATALOG: Record<
 
 function pickTemplate(query: string) {
   const q = query.toLowerCase();
-  if (/earbud|headphone|sony|airpod/.test(q)) return { ...CATALOG.earbuds, title: query.slice(0, 60) || CATALOG.earbuds.title };
-  if (/coffee|kopi|brew/.test(q)) return { ...CATALOG.coffee, title: query.slice(0, 60) || CATALOG.coffee.title };
-  if (/hoodie|baju|shirt/.test(q)) return { ...CATALOG.hoodie, title: query.slice(0, 60) || CATALOG.hoodie.title };
-  if (/keyboard|keychron/.test(q)) return { ...CATALOG.keyboard, title: query.slice(0, 60) || CATALOG.keyboard.title };
+  if (/earbud|headphone|sony|airpod/.test(q))
+    return { ...CATALOG.earbuds, title: query.slice(0, 60) || CATALOG.earbuds.title };
+  if (/coffee|kopi|brew/.test(q))
+    return { ...CATALOG.coffee, title: query.slice(0, 60) || CATALOG.coffee.title };
+  if (/hoodie|baju|shirt/.test(q))
+    return { ...CATALOG.hoodie, title: query.slice(0, 60) || CATALOG.hoodie.title };
+  if (/keyboard|keychron/.test(q))
+    return { ...CATALOG.keyboard, title: query.slice(0, 60) || CATALOG.keyboard.title };
   return { ...CATALOG.default, title: query.slice(0, 60) || CATALOG.default.title };
 }
 
@@ -57,6 +62,7 @@ function makeAdapter(
   priceMul: number,
   mocked: boolean,
 ): MarketplaceAdapter {
+  const meta = metaFor(id);
   return {
     id,
     label,
@@ -65,17 +71,19 @@ function makeAdapter(
     async search(q: MarketplaceSearchQuery): Promise<MarketplaceOffer[]> {
       const t = pickTemplate(q.query);
       const now = new Date().toISOString();
-      return t.merchants.map((merchant, i) => {
+      const searchUrl = meta?.searchUrl(q.query) || `https://example.com/${id}?q=${encodeURIComponent(q.query)}`;
+      return t.merchants.slice(0, 2).map((merchant, i) => {
         const jitter = 0.92 + ((i + id.length) % 5) * 0.04 + Math.random() * 0.03;
-        const priceUsdc =
-          Math.round(t.base * priceMul * jitter * 100) / 100;
+        const priceUsdc = Math.round(t.base * priceMul * jitter * 100) / 100;
         return {
           id: `${id}-${btoa(unescape(encodeURIComponent(q.query))).replace(/[^a-zA-Z0-9]/g, "").slice(0, 8)}-${i}`,
           marketplace: id,
           title: `${t.title} · ${merchant}`,
           merchant,
           priceUsdc,
-          url: `https://example.com/${id}/item/${encodeURIComponent(q.query)}-${i}`,
+          url: searchUrl,
+          productUrl: searchUrl,
+          description: `Demo listing for “${q.query}” on ${label}. Open the marketplace to see live stock.`,
           inStock: i !== 2,
           rating: 3.8 + (i % 3) * 0.4,
           shippingDays: 1 + i,
@@ -87,17 +95,13 @@ function makeAdapter(
   };
 }
 
-/**
- * Public/no-key sources: we use a free DummyJSON products search as a
- * "real" cross-check for Amazon-like results when reachable; others are
- * clearly labeled marketplace mocks (Tokopedia/Shopee/etc. need partner APIs).
- */
 export const dummyJsonAmazonish: MarketplaceAdapter = {
   id: "amazon",
-  label: "Amazon-like (DummyJSON)",
-  region: "US/Global",
+  label: "Amazon (DummyJSON)",
+  region: "Worldwide",
   mocked: false,
   async search(q) {
+    const meta = metaFor("amazon");
     try {
       const res = await fetch(
         `https://dummyjson.com/products/search?q=${encodeURIComponent(q.query)}&limit=5`,
@@ -105,7 +109,16 @@ export const dummyJsonAmazonish: MarketplaceAdapter = {
       );
       if (!res.ok) throw new Error("dummyjson fail");
       const data = (await res.json()) as {
-        products: { id: number; title: string; price: number; brand?: string; rating?: number; stock?: number; thumbnail?: string }[];
+        products: {
+          id: number;
+          title: string;
+          price: number;
+          brand?: string;
+          rating?: number;
+          stock?: number;
+          thumbnail?: string;
+          description?: string;
+        }[];
       };
       const now = new Date().toISOString();
       return (data.products || []).map((p) => ({
@@ -115,6 +128,9 @@ export const dummyJsonAmazonish: MarketplaceAdapter = {
         merchant: p.brand || "Amazon seller",
         priceUsdc: p.price,
         url: `https://dummyjson.com/products/${p.id}`,
+        productUrl: meta?.searchUrl(p.title) || `https://www.amazon.com/s?k=${encodeURIComponent(p.title)}`,
+        imageUrl: p.thumbnail,
+        description: p.description,
         inStock: (p.stock ?? 1) > 0,
         rating: p.rating,
         shippingDays: 3,
@@ -122,25 +138,40 @@ export const dummyJsonAmazonish: MarketplaceAdapter = {
         scrapedAt: now,
       }));
     } catch {
-      return makeAdapter("amazon", "Amazon (fallback mock)", "US/Global", 1.1, true).search(q);
+      return makeAdapter("amazon", "Amazon (fallback mock)", "Worldwide", 1.1, true).search(q);
     }
   },
 };
 
+const MOCK_SPECS: { id: MarketplaceId; mul: number }[] = [
+  { id: "tokopedia", mul: 0.95 },
+  { id: "shopee", mul: 0.92 },
+  { id: "lazada", mul: 1.0 },
+  { id: "blibli", mul: 0.97 },
+  { id: "rakuten", mul: 1.12 },
+  { id: "amazon-jp", mul: 1.08 },
+  { id: "coupang", mul: 1.05 },
+  { id: "ebay", mul: 1.05 },
+  { id: "aliexpress", mul: 0.85 },
+  { id: "demo-mart", mul: 0.88 },
+];
+
 export const MARKETPLACE_ADAPTERS: MarketplaceAdapter[] = [
-  makeAdapter("tokopedia", "Tokopedia", "Indonesia", 0.95, true),
-  makeAdapter("shopee", "Shopee", "SEA", 0.92, true),
-  makeAdapter("lazada", "Lazada", "SEA", 1.0, true),
+  ...MOCK_SPECS.map(({ id, mul }) => {
+    const m = MARKETPLACE_CATALOG.find((c) => c.id === id)!;
+    return makeAdapter(id, m.label, m.region, mul, true);
+  }),
   dummyJsonAmazonish,
-  makeAdapter("ebay", "eBay", "Global", 1.05, true),
-  makeAdapter("demo-mart", "Demo Mart", "Demo", 0.88, true),
 ];
 
 export async function searchAllMarketplaces(
   q: MarketplaceSearchQuery,
 ): Promise<MarketplaceOffer[]> {
+  const adapters = q.only?.length
+    ? MARKETPLACE_ADAPTERS.filter((a) => q.only!.includes(a.id))
+    : MARKETPLACE_ADAPTERS;
   const results = await Promise.all(
-    MARKETPLACE_ADAPTERS.map(async (a) => {
+    adapters.map(async (a) => {
       try {
         return await a.search(q);
       } catch {

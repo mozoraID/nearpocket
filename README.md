@@ -23,10 +23,12 @@ Mobile-first app (cream + black, 390px column) with four tabs:
 
 | Tab | What you do |
 | --- | --- |
-| **Home** | Balance (USDC on NEAR + rupiah estimate), Scan & Pay / Top up / Belanja, agent approvals waiting for you, recent activity. Sign in with Meteor / HOT / Intear / NEAR Mobile, or *Try demo*. |
-| **Bayar** | Opens straight to the rear camera QR scanner (html5-qrcode). Fallbacks: upload a QR image, paste the QR text, or *Use sample QRIS*. Then: merchant card (name, city, rail flag, amount) → FX line → one **Pay** button → progress (Signed → NEAR Intents → Xendit QRIS → Paid) → receipt with partner ref + contract link. *Pay worldwide* (card/link) and *Receive as a merchant* (QR generator) are secondary options. |
-| **Belanja** | One search box across Tokopedia / Shopee / Lazada / eBay / Demo Mart (demo data) + DummyJSON (live API). Each item: **Buy now** or **Ask agent** (max budget + deadline → agent watches). Agent list with statuses and Approve / Reject. Spending-limits card linked to the testnet contract. |
-| **Aktivitas** | Timeline of payments, purchases, top ups and agent actions; tap a payment for its receipt. On-chain proof list of real testnet txs. |
+| **Home** | Balance (USDC on NEAR + rupiah estimate with FX source + time), Scan & Pay / Top up / Belanja, agent approvals, recent activity. Globe language switcher + Settings. |
+| **Bayar** | Camera QR scanner (html5-qrcode) + upload / paste / sample. Confirm → FX (Frankfurter + open.er-api cross-check) → Pay → Xendit QRIS sandbox. **Pay worldwide** = NearPocket Card (virtual debit UI, freeze, limit, top-up via Intents; card partner: demo — not issued by near.com). **Receive as merchant** with 4-step tutorial. |
+| **Belanja** | Connect marketplaces per country (Tokopedia, Shopee, Lazada, Blibli, Rakuten, Amazon JP, Coupang, Amazon, eBay, AliExpress — demo connect). Search only connected ones. Each result: mark + name, Overview sheet, Open in marketplace (real search URL). Buy now / Ask agent. Floating **Ask agent** chat bubble. Spending limits: *Agent spent today* only (QRIS/card excluded); Save signs `set_policy` when a real wallet is connected. |
+| **Aktivitas** | Timeline of payments, purchases, card, top ups and agent actions; on-chain proof list. |
+| **Sign-in** | (1) Create wallet in browser (12-word backup + confirm + passcode-encrypted local key — never sent to server), (2) Connect NEAR wallet (Meteor / HOT / Intear / NEAR Mobile), (3) Continue with Google via Privy when `NEXT_PUBLIC_PRIVY_APP_ID` is set (otherwise Coming soon). Demo mode for judges. |
+| **i18n** | English + Bahasa Indonesia (full). Thai, Malay, Japanese, Korean, Chinese (partial, EN fallback). Persisted; auto-detect from browser. |
 | **Top up (beta)** | Bottom sheet from Home (demo USDC credit; NEAR option shows a live 1Click quote). |
 
 A small **Demo · testnet** pill opens a *How it works* sheet with the real-vs-demo list.
@@ -83,15 +85,15 @@ NearPocket never sends crypto to merchants. Production: user USDC → licensed P
 | Piece | Status |
 | --- | --- |
 | EMVCo parser + CRC + camera scan (+ image upload) | **Real** |
-| FX (Frankfurter) | **Real** when reachable |
+| FX (Frankfurter + open.er-api cross-check) | **Real** when reachable; UI shows source + WIB time |
 | Agent-policy contract on testnet | **Real** (see txs above) |
 | On-chain policy view in UI | **Real** via RPC |
 | NEAR Intents 1Click dry quote | **Real** public dry quote → USDC on NEAR (execution / deposit still dry until mainnet JWT) |
-| Marketplace search | **Amazon-like** via DummyJSON when reachable; Tokopedia/Shopee/Lazada/eBay **mocked adapters** (labeled) |
+| Marketplace search | Connected-filter; **Amazon** via DummyJSON when reachable; others **mocked** with real marketplace search URLs (labeled) |
 | Xendit QRIS | **Real Test Mode** when `XENDIT_SECRET_KEY` has Money-in / QR Write; else mock / 403 labeled |
 | 0xramp | Staging adapter ready; **needs partner credentials** (no public USDC sandbox) |
-| Card / top-up settlement | **Mocked** (labeled) |
-| Wallet login | **Meteor Wallet** (+ HOT / Intear / NEAR Mobile) via wallet-selector; Demo account for zero secrets |
+| NearPocket Card / top-up | **Mocked** virtual card UI (labeled Card partner: demo; Intents path real for quotes) |
+| Wallet login | **Meteor / HOT / Intear / NEAR Mobile** via wallet-selector; **Create-in-browser** local encrypted key; Demo account; Google/Privy behind env |
 
 **Not used (by design):** Onmeta, Alchemy Pay, or other non-NEAR-native ramps — stays aligned with the NEAR Hackathon program (Intents, chain abstraction, on-chain policy).
 
