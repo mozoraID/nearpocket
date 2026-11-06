@@ -9,7 +9,7 @@ import { formatUsdc } from "@/lib/fx/quote";
 
 const PRESETS = [10, 25, 50, 100];
 const METHODS = [
-  { id: "qris", label: "QRIS (IDR)", note: "Pay rupiah, get USDC" },
+  { id: "qris", label: "Local QR", note: "Pay local fiat, get USDC (demo)" },
   { id: "near", label: "From NEAR", note: "Swap via NEAR Intents" },
   { id: "card", label: "Card", note: "Debit / credit" },
 ] as const;

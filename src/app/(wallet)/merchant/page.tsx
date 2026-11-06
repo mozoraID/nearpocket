@@ -105,7 +105,7 @@ export default function MerchantPage() {
           <p className="flex items-center gap-2 font-medium text-ink">
             <Check className="h-4 w-4" /> Compliance-safe
           </p>
-          Crypto never pays the merchant directly. A licensed PJP converts USDC → IDR/local fiat.
+          Crypto never pays the merchant directly. A licensed PJP converts USDC → local fiat.
         </div>
         <button type="button" className="btn-primary mt-4 w-full" onClick={() => setGuideOpen(false)}>
           {t("common.done")}
