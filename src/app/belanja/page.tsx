@@ -33,6 +33,7 @@ import { approveWaitlistItem, recheckWaitlistItem, rejectWaitlistItem } from "@/
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { trySetPolicyOnChain } from "@/lib/near/set-policy";
 import { useT } from "@/lib/i18n";
+import { AgentChatInline } from "@/components/agent/AgentChatInline";
 import { formatRateLine } from "@/lib/fx/quote";
 
 const SUGGESTIONS = ["Wireless earbuds", "Kopi arabica", "Hoodie", "Mechanical keyboard"];
@@ -380,6 +381,7 @@ export default function BelanjaPage() {
       <section id="agent" className="mt-8 scroll-mt-4">
         <h2 className="text-base font-semibold">{t("shop.yourAgent")}</h2>
         <p className="mb-3 text-sm text-warm-600">{t("shop.yourAgentHint")}</p>
+        <AgentChatInline />
         {items.length === 0 ? (
           <div className="card text-center text-sm text-warm-600">{t("shop.nothingYet")}</div>
         ) : (

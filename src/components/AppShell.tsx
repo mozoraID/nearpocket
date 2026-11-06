@@ -1,7 +1,6 @@
 "use client";
 
 import { BottomNav } from "./BottomNav";
-import { AgentChatBubble } from "./agent/AgentChatBubble";
 import { LanguageProvider } from "@/lib/i18n";
 import { useNearPocketStore } from "@/lib/store";
 import { useEffect } from "react";
@@ -20,7 +19,6 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <BottomNav />
-      <AgentChatBubble />
     </div>
   );
 }
