@@ -216,8 +216,20 @@ function PayInner() {
         <div className="space-y-3 px-5 pt-5">
           {error && <p className="rounded-2xl bg-[#f4dcd6] px-4 py-3 text-sm text-[#8a2d1c]">{error}</p>}
           <button type="button" className="btn-primary w-full" onClick={() => handleRaw(SAMPLE_QRS.indonesia)}>
-            <QrCode className="h-5 w-5" /> Use sample QRIS
+            <QrCode className="h-5 w-5" /> Use sample QR
           </button>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(SAMPLE_QRS) as SampleKey[]).filter((k) => k !== "indonesia").map((k) => (
+              <button
+                key={k}
+                type="button"
+                className="h-9 rounded-full bg-cream-100 px-3 text-xs font-medium ring-1 ring-cream-300"
+                onClick={() => handleRaw(SAMPLE_QRS[k])}
+              >
+                {SAMPLE_LABEL[k]}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <button type="button" className="btn-secondary" onClick={() => fileRef.current?.click()}>
               <ImageUp className="h-4 w-4" /> Upload QR
