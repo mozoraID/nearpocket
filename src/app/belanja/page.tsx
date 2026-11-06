@@ -465,7 +465,7 @@ export default function BelanjaPage() {
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-cream-300">
               <div className="h-full rounded-full bg-ink" style={{ width: `${Math.min(100, (spent / (daily || 1)) * 100)}%` }} />
             </div>
-            <p className="mt-1 text-[11px] text-warm-500">QRIS & card payments do not count here — only agent / shop buys.</p>
+            <p className="mt-1 text-[11px] text-warm-500">{t("shop.agentSpentNote")}</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-2xl bg-cream-200 p-3">
