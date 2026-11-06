@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ScanLine,
   Globe2,
@@ -20,6 +20,7 @@ import { useNearPocketStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { BRAND } from "@/config/brand";
 import { ProductCarousel } from "./ProductCarousel";
+import { useAuthSession } from "@/hooks/useAuthSession";
 
 const RAILS = [
   "landing.railId",
@@ -61,21 +62,11 @@ function Reveal({ children, className }: { children: React.ReactNode; className?
 
 export function LandingPage() {
   const t = useT();
-  const accountId = useNearPocketStore((s) => s.accountId);
   const connectDemo = useNearPocketStore((s) => s.connectDemo);
-  const [mounted, setMounted] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-  useEffect(() => {
-    const unsub = useNearPocketStore.persist.onFinishHydration(() => setHydrated(true));
-    if (useNearPocketStore.persist.hasHydrated()) setHydrated(true);
-    return unsub;
-  }, []);
-
-  const hasSession = mounted && hydrated && Boolean(accountId);
+  const { phase } = useAuthSession();
   const loginHref = "/login?next=%2Fhome";
-  const primaryHref = hasSession ? "/home" : loginHref;
+  const authLoading = phase === "loading";
+  const hasSession = phase === "signed_in";
 
   return (
     <div className="min-h-dvh bg-cream-200 text-ink">
@@ -98,22 +89,25 @@ export function LandingPage() {
               {t("landing.navFaq")}
             </a>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex min-h-10 items-center gap-2">
             <LanguageSwitcher compact />
-            {hasSession ? (
-              <Link
+            {authLoading ? (
+              <span className="h-10 w-24 animate-pulse rounded-full bg-cream-300/80" aria-hidden />
+            ) : hasSession ? (
+              <a
                 href="/home"
-                className="flex h-10 items-center rounded-full bg-cream-100 px-3.5 text-sm font-semibold ring-1 ring-cream-300"
+                className="flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
               >
                 {t("landing.ctaOpenApp")}
+              </a>
+            ) : (
+              <Link
+                href={loginHref}
+                className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+              >
+                {t("landing.ctaNavSignIn")}
               </Link>
-            ) : null}
-            <Link
-              href={loginHref}
-              className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
-            >
-              {t("landing.ctaNavSignIn")}
-            </Link>
+            )}
           </div>
         </div>
       </header>
@@ -131,13 +125,28 @@ export function LandingPage() {
             <p className="mt-4 max-w-xl text-base leading-relaxed text-warm-600 sm:text-lg">
               {t("landing.heroSub")}
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href={primaryHref} className="btn-primary">
-                {hasSession ? t("landing.ctaOpenApp") : t("landing.ctaLaunch")}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              {!hasSession && (
+            <div className="mt-8 flex min-h-12 flex-wrap gap-3">
+              {authLoading ? (
                 <>
+                  <span className="h-12 w-36 animate-pulse rounded-full bg-cream-300/80" aria-hidden />
+                  <span className="h-12 w-28 animate-pulse rounded-full bg-cream-300/60" aria-hidden />
+                </>
+              ) : hasSession ? (
+                <>
+                  <a href="/home" className="btn-primary">
+                    {t("landing.ctaOpenApp")}
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                  <Link href="/login?next=%2Fhome" className="btn-outline">
+                    {t("auth.signOutSwitch")}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href={loginHref} className="btn-primary">
+                    {t("landing.ctaLaunch")}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                   <Link href={loginHref} className="btn-secondary">
                     {t("landing.ctaSignIn")}
                   </Link>
@@ -145,6 +154,7 @@ export function LandingPage() {
                     type="button"
                     className="btn-outline"
                     onClick={() => {
+                      try { sessionStorage.removeItem("nearpocket-suppress-restore"); } catch { /* */ }
                       connectDemo();
                       window.location.href = "/home";
                     }}
@@ -295,9 +305,14 @@ export function LandingPage() {
             >
               <Code2 className="h-4 w-4" /> {t("landing.footerGithub")}
             </a>
-            <Link href={primaryHref} className="font-medium underline-offset-2 hover:underline">
-              {hasSession ? t("landing.ctaOpenApp") : t("landing.ctaLaunch")}
-            </Link>
+            {authLoading ? null : (
+              <Link
+                href={hasSession ? "/home" : loginHref}
+                className="font-medium underline-offset-2 hover:underline"
+              >
+                {hasSession ? t("landing.ctaOpenApp") : t("landing.ctaLaunch")}
+              </Link>
+            )}
           </div>
         </div>
       </footer>

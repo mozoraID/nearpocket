@@ -12,7 +12,6 @@ import {
   Shield,
   ArrowLeft,
   Sparkles,
-  LogOut,
   ArrowRight,
 } from "lucide-react";
 import { useNearPocketStore } from "@/lib/store";
@@ -20,15 +19,14 @@ import { NEAR_CONFIG } from "@/lib/near/config";
 import { useT } from "@/lib/i18n";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { PRIVY_APP_ID } from "./PrivyClientProvider";
+import { SignOutButton } from "./SignOutButton";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { BRAND } from "@/config/brand";
 import { shortAccountLabel, accountInitials, avatarHue } from "@/lib/account-label";
 import {
   generateLocalWallet,
-  loadLocalWalletRecord,
   pickConfirmIndices,
   saveEncryptedWallet,
-  clearLocalWallet,
   type GeneratedWallet,
 } from "@/lib/wallet/local";
 
@@ -69,11 +67,9 @@ export function LoginPanel() {
   const next = safeNext(searchParams.get("next"));
 
   const accountId = useNearPocketStore((s) => s.accountId);
-  const demoMode = useNearPocketStore((s) => s.demoMode);
   const authMethod = useNearPocketStore((s) => s.authMethod);
   const connectDemo = useNearPocketStore((s) => s.connectDemo);
   const connectWallet = useNearPocketStore((s) => s.connectWallet);
-  const disconnect = useNearPocketStore((s) => s.disconnect);
 
   const [stage, setStage] = useState<Stage>("menu");
   const [busy, setBusy] = useState(false);
@@ -103,10 +99,13 @@ export function LoginPanel() {
     return unsub;
   }, []);
 
-  // Restore wallet-selector return / local wallet silently into store, but DO NOT auto-navigate away —
-  // signed-in users see the "continue" panel.
+  // Wallet-selector return URL: accept account into store, stay on /login (Continue panel).
+  // Never auto-navigate to /home. Respect suppress-restore after sign-out.
   useEffect(() => {
     if (typeof window === "undefined" || !hydrated) return;
+    try {
+      if (sessionStorage.getItem("nearpocket-suppress-restore") === "1") return;
+    } catch { /* */ }
     const params = new URLSearchParams(window.location.search);
     const acc = params.get("account_id");
     if (acc && (acc.endsWith(".testnet") || acc.endsWith(".near"))) {
@@ -117,14 +116,12 @@ export function LoginPanel() {
       window.history.replaceState({}, "", url.pathname + url.search);
       return;
     }
-    const local = loadLocalWalletRecord();
-    if (local && !accountId) {
-      connectWallet(local.accountId, "local");
-      rememberMethod("local");
-    }
+    // Do NOT silently resurrect a local wallet here after sign-out.
+    // Local wallet is only restored when the user starts Create/Continue flows,
+    // or when WalletButton restores it inside a gated /home session.
   }, [hydrated, connectWallet, accountId]);
 
-  const signedIn = hydrated && Boolean(accountId) && !demoMode;
+  const signedIn = hydrated && Boolean(accountId); // demo or real — show Continue, never auto-redirect
 
   function goApp() {
     router.replace(next);
@@ -141,6 +138,7 @@ export function LoginPanel() {
   }
 
   function startCreate() {
+    try { sessionStorage.removeItem("nearpocket-suppress-restore"); } catch { /* */ }
     resetCreate();
     const w = generateLocalWallet();
     setGen(w);
@@ -180,6 +178,7 @@ export function LoginPanel() {
   }
 
   async function connectWithSelector() {
+    try { sessionStorage.removeItem("nearpocket-suppress-restore"); } catch { /* */ }
     setBusy(true);
     setError(null);
     try {
@@ -238,12 +237,25 @@ export function LoginPanel() {
   }
 
   function tryDemo() {
+    try { sessionStorage.removeItem("nearpocket-suppress-restore"); } catch { /* */ }
     connectDemo();
     rememberMethod("demo");
     goApp();
   }
 
   const hue = accountId ? avatarHue(accountId) : 0;
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-cream-200 text-ink">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-sm font-bold text-cream-100">
+          NP
+        </span>
+        <p className="text-sm font-medium">{BRAND.displayName}</p>
+        <p className="text-xs text-warm-500">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-cream-200 text-ink">
@@ -276,16 +288,7 @@ export function LoginPanel() {
               <button type="button" className="btn-primary w-full" onClick={goApp}>
                 {t("auth.continueToApp")} <ArrowRight className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                className="btn-secondary w-full"
-                onClick={() => {
-                  if (authMethod === "local") clearLocalWallet();
-                  disconnect();
-                }}
-              >
-                <LogOut className="h-4 w-4" /> {t("auth.signOutSwitch")}
-              </button>
+              <SignOutButton />
             </div>
           </div>
         ) : (

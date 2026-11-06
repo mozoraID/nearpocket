@@ -20,28 +20,35 @@ function nearAddressFromUser(user: {
   return null;
 }
 
+/**
+ * Google via Privy. Only writes into the NearPocket store / calls onDone after the
+ * user explicitly clicks this button — never on mount from a leftover Privy cookie.
+ */
 export function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
   const t = useT();
   const connectWallet = useNearPocketStore((s) => s.connectWallet);
-  const { ready, authenticated, user, logout } = usePrivy();
+  const { ready, authenticated, user } = usePrivy();
   const { createWallet } = useCreateWallet();
   const creating = useRef(false);
+  const userClicked = useRef(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const { initOAuth, state } = useLoginWithOAuth({
     onComplete: () => {
-      /* handled by authenticated effect */
+      /* handled by authenticated effect after userClicked */
     },
     onError: (error) => {
       const msg = typeof error === "string" ? error : (error as Error)?.message || String(error);
       setErr(msg);
       setBusy(false);
+      userClicked.current = false;
     },
   });
 
   useEffect(() => {
     if (!authenticated || !user) return;
+    if (!userClicked.current) return; // critical: no silent re-login
     let cancelled = false;
     (async () => {
       try {
@@ -54,7 +61,6 @@ export function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
               (out as { wallet?: { address?: string } })?.wallet?.address ||
               nearAddressFromUser((out as { user?: typeof user }).user || user);
           } catch (e) {
-            // Fall back to a display id from Google email — still signed in via Privy
             const email =
               (user as { google?: { email?: string }; email?: { address?: string } }).google
                 ?.email ||
@@ -70,8 +76,12 @@ export function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
           }
         }
         if (!cancelled && addr) {
+          try {
+            sessionStorage.removeItem("nearpocket-suppress-restore");
+          } catch { /* */ }
           connectWallet(addr, "privy");
           onDone?.();
+          userClicked.current = false;
         }
       } finally {
         if (!cancelled) setBusy(false);
@@ -85,15 +95,31 @@ export function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
   async function onClick() {
     setErr(null);
     setBusy(true);
+    userClicked.current = true;
     try {
-      if (authenticated) {
-        // Already in Privy session — sync account into NearPocket
+      try {
+        sessionStorage.removeItem("nearpocket-suppress-restore");
+      } catch { /* */ }
+      if (authenticated && user) {
+        // Already in Privy — treat click as explicit continue
+        let addr = nearAddressFromUser(user as never);
+        if (!addr) {
+          const email =
+            (user as { google?: { email?: string }; email?: { address?: string } }).google?.email ||
+            (user as { email?: { address?: string } }).email?.address;
+          addr = email ? `privy:${email}` : `privy:${user.id}`;
+        }
+        connectWallet(addr, "privy");
+        onDone?.();
+        userClicked.current = false;
+        setBusy(false);
         return;
       }
       await initOAuth({ provider: "google" });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Google login failed");
       setBusy(false);
+      userClicked.current = false;
     }
   }
 
@@ -101,26 +127,12 @@ export function GoogleLoginButton({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="space-y-2">
-      <button
-        type="button"
-        className="btn-outline w-full"
-        disabled={loading}
-        onClick={onClick}
-      >
+      <button type="button" className="btn-outline w-full" disabled={loading} onClick={onClick}>
         <Globe className="h-5 w-5" />
         {loading ? "…" : t("auth.google")}
       </button>
       <p className="text-center text-xs text-warm-500">{t("auth.googleHint")}</p>
       {err && <p className="text-xs text-[#8a2d1c]">{err}</p>}
-      {authenticated && (
-        <button
-          type="button"
-          className="text-xs text-warm-600 underline"
-          onClick={() => logout()}
-        >
-          Privy sign out
-        </button>
-      )}
     </div>
   );
 }

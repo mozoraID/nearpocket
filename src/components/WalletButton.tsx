@@ -8,18 +8,19 @@ import { useNearPocketStore } from "@/lib/store";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { useT } from "@/lib/i18n";
 import { Sheet } from "./Sheet";
-import { clearLocalWallet, loadLocalWalletRecord, requestTestnetFaucet, unlockSecretKey } from "@/lib/wallet/local";
+import { loadLocalWalletRecord, requestTestnetFaucet, unlockSecretKey } from "@/lib/wallet/local";
 import { accountInitials, avatarHue, shortAccountLabel } from "@/lib/account-label";
+import { fullSignOut } from "@/lib/auth/sign-out";
+import { usePrivy } from "@privy-io/react-auth";
+import { PRIVY_APP_ID } from "./PrivyClientProvider";
 
-export function WalletButton() {
+function WalletButtonInner({ privyLogout }: { privyLogout?: () => Promise<void> }) {
   const t = useT();
   const pathname = usePathname();
   const accountId = useNearPocketStore((s) => s.accountId);
   const demoMode = useNearPocketStore((s) => s.demoMode);
   const authMethod = useNearPocketStore((s) => s.authMethod);
-  const connectDemo = useNearPocketStore((s) => s.connectDemo);
   const connectWallet = useNearPocketStore((s) => s.connectWallet);
-  const disconnect = useNearPocketStore((s) => s.disconnect);
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,6 +29,7 @@ export function WalletButton() {
   const [exportOpen, setExportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [faucetMsg, setFaucetMsg] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   const hasSession = Boolean(accountId);
   const isDemo = Boolean(accountId && demoMode);
@@ -37,6 +39,10 @@ export function WalletButton() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    try {
+      if (sessionStorage.getItem("nearpocket-suppress-restore") === "1") return;
+    } catch { /* */ }
+
     const params = new URLSearchParams(window.location.search);
     const acc = params.get("account_id");
     if (acc && (acc.endsWith(".testnet") || acc.endsWith(".near"))) {
@@ -44,7 +50,9 @@ export function WalletButton() {
       const url = new URL(window.location.href);
       ["account_id", "public_key", "all_keys"].forEach((k) => url.searchParams.delete(k));
       window.history.replaceState({}, "", url.pathname + url.search);
+      return;
     }
+    // Only restore local wallet into an empty store when not suppressed
     const local = loadLocalWalletRecord();
     if (local && !accountId) {
       connectWallet(local.accountId, "local");
@@ -82,7 +90,17 @@ export function WalletButton() {
     setBusy(false);
   }
 
-  // Demo or no session → go to /login (never skip)
+  async function onSignOut() {
+    setSigningOut(true);
+    try {
+      sessionStorage.setItem("nearpocket-suppress-restore", "1");
+    } catch { /* */ }
+    await fullSignOut({ privyLogout });
+    setOpen(false);
+    // Hard navigate to landing in signed-out state (clears any soft-nav cache)
+    window.location.assign("/");
+  }
+
   if (!hasSession || isDemo) {
     return (
       <Link
@@ -90,7 +108,7 @@ export function WalletButton() {
         className="flex h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream-100"
       >
         <Wallet className="h-4 w-4" />
-        <span className="hidden xs:inline sm:inline">{t("auth.signIn")}</span>
+        <span className="sm:inline">{t("auth.signIn")}</span>
       </Link>
     );
   }
@@ -112,7 +130,17 @@ export function WalletButton() {
         <span className="truncate text-xs font-medium">{label}</span>
       </button>
 
-      <Sheet open={open} onClose={() => { setOpen(false); setExportOpen(false); setPasscode(""); setError(null); }} title={t("auth.yourWallet")}>
+      <Sheet
+        open={open}
+        onClose={() => {
+          if (signingOut) return;
+          setOpen(false);
+          setExportOpen(false);
+          setPasscode("");
+          setError(null);
+        }}
+        title={t("auth.yourWallet")}
+      >
         <div className="space-y-4">
           <div className="rounded-2xl bg-cream-200 p-4">
             <p className="text-xs text-warm-600">
@@ -162,21 +190,22 @@ export function WalletButton() {
             </>
           )}
 
-          <button
-            type="button"
-            className="btn-secondary w-full"
-            onClick={() => {
-              if (authMethod === "local") clearLocalWallet();
-              disconnect();
-              setOpen(false);
-              // Leave app — back to login
-              window.location.href = "/login";
-            }}
-          >
-            <LogOut className="h-4 w-4" /> {t("auth.signOut")}
+          <button type="button" className="btn-secondary w-full" disabled={signingOut} onClick={onSignOut}>
+            <LogOut className="h-4 w-4" /> {signingOut ? "Signing out…" : t("auth.signOut")}
           </button>
         </div>
       </Sheet>
     </>
   );
+}
+
+/** Wire Privy logout when the provider is configured. */
+function WalletButtonWithPrivy() {
+  const { logout } = usePrivy();
+  return <WalletButtonInner privyLogout={async () => { await logout(); }} />;
+}
+
+export function WalletButton() {
+  if (PRIVY_APP_ID) return <WalletButtonWithPrivy />;
+  return <WalletButtonInner />;
 }
