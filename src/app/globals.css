@@ -150,3 +150,21 @@ body {
 .np-sheet { animation: np-sheet-in 0.22s ease-out; }
 .np-fade { animation: np-fade-in 0.18s ease-out; }
 .np-scanline { animation: np-scanline 2.4s ease-in-out infinite; }
+
+@keyframes np-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.np-float {
+  animation: np-float 5.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .np-float {
+    animation: none !important;
+  }
+  .np-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import {
   ScanLine,
   Globe2,
@@ -18,11 +17,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { WalletButton } from "@/components/WalletButton";
 import { useNearPocketStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
-import { openAuthSheet } from "@/lib/auth-bridge";
 import { BRAND } from "@/config/brand";
+import { ProductCarousel } from "./ProductCarousel";
 
 const RAILS = [
   "landing.railId",
@@ -58,42 +56,43 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
+function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-10% 0px" });
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      initial={reduce ? false : { opacity: 0, y: 28 }}
+      animate={inView || reduce ? { opacity: 1, y: 0 } : undefined}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export function LandingPage() {
   const t = useT();
-  const router = useRouter();
   const accountId = useNearPocketStore((s) => s.accountId);
   const connectDemo = useNearPocketStore((s) => s.connectDemo);
   const [mounted, setMounted] = useState(false);
-  const [pendingRedirect, setPendingRedirect] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => setMounted(true), []);
-
   useEffect(() => {
-    if (pendingRedirect && accountId) {
-      router.push("/app");
-      setPendingRedirect(false);
-    }
-  }, [pendingRedirect, accountId, router]);
+    const unsub = useNearPocketStore.persist.onFinishHydration(() => setHydrated(true));
+    if (useNearPocketStore.persist.hasHydrated()) setHydrated(true);
+    return unsub;
+  }, []);
 
-  const hasSession = mounted && Boolean(accountId);
-
-  function launch() {
-    if (hasSession) {
-      router.push("/app");
-      return;
-    }
-    setPendingRedirect(true);
-    openAuthSheet();
-  }
-
-  function tryDemo() {
-    connectDemo();
-    router.push("/app");
-  }
+  const hasSession = mounted && hydrated && Boolean(accountId);
+  const loginHref = "/login?next=%2Fapp";
+  const primaryHref = hasSession ? "/app" : loginHref;
 
   return (
     <div className="min-h-dvh bg-cream-200 text-ink">
-      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-cream-300/80 bg-cream-100/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
@@ -115,13 +114,26 @@ export function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <LanguageSwitcher compact />
-            <WalletButton />
+            {hasSession ? (
+              <Link
+                href="/app"
+                className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+              >
+                {t("landing.ctaOpenApp")}
+              </Link>
+            ) : (
+              <Link
+                href={loginHref}
+                className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+              >
+                {t("landing.ctaNavSignIn")}
+              </Link>
+            )}
           </div>
         </div>
       </header>
 
       <main>
-        {/* Hero */}
         <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-16 pt-10 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-14 lg:pt-16">
           <div>
             <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-xs font-medium ring-1 ring-cream-300">
@@ -135,23 +147,23 @@ export function LandingPage() {
               {t("landing.heroSub")}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <button type="button" className="btn-primary" onClick={launch}>
+              <Link href={primaryHref} className="btn-primary">
                 {hasSession ? t("landing.ctaOpenApp") : t("landing.ctaLaunch")}
                 <ArrowRight className="h-4 w-4" />
-              </button>
+              </Link>
               {!hasSession && (
                 <>
+                  <Link href={loginHref} className="btn-secondary">
+                    {t("landing.ctaSignIn")}
+                  </Link>
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="btn-outline"
                     onClick={() => {
-                      setPendingRedirect(true);
-                      openAuthSheet();
+                      connectDemo();
+                      window.location.href = "/app";
                     }}
                   >
-                    {t("landing.ctaSignIn")}
-                  </button>
-                  <button type="button" className="btn-outline" onClick={tryDemo}>
                     {t("landing.ctaDemo")}
                   </button>
                 </>
@@ -159,212 +171,125 @@ export function LandingPage() {
             </div>
           </div>
 
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            <div className="relative overflow-hidden rounded-[2rem] bg-cream-100 shadow-[0_20px_60px_rgba(17,17,17,0.08)] ring-1 ring-cream-300">
-              <Image
-                src="/landing/hero-pay.webp"
-                alt={t("landing.heroPhotoAlt")}
-                width={1400}
-                height={934}
-                priority
-                className="h-56 w-full object-cover sm:h-72"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-cream-200/40 to-transparent" />
-            </div>
-            <div className="relative mx-auto -mt-24 w-[220px] sm:-mt-28 sm:w-[250px]">
-              <div className="overflow-hidden rounded-[1.75rem] bg-ink p-2 shadow-2xl ring-1 ring-black/20">
-                <div className="overflow-hidden rounded-[1.35rem] bg-cream-200">
-                  <Image
-                    src="/landing/app-mock.webp"
-                    alt={t("landing.mockAlt")}
-                    width={390}
-                    height={844}
-                    className="h-auto w-full"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <ProductCarousel />
         </section>
 
-        {/* Features */}
         <section id="features" className="border-t border-cream-300 bg-cream-100/70 py-16">
-          <div className="mx-auto max-w-6xl space-y-16 px-4 sm:px-6">
-            {/* QRIS */}
-            <div className="grid items-center gap-8 lg:grid-cols-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="overflow-hidden rounded-3xl ring-1 ring-cream-300">
-                  <Image
-                    src="/landing/market-stall.webp"
-                    alt={t("landing.featQrAlt")}
-                    width={1200}
-                    height={800}
-                    className="h-44 w-full object-cover sm:h-56"
-                  />
-                </div>
-                <div className="overflow-hidden rounded-3xl ring-1 ring-cream-300">
-                  <Image
-                    src="/landing/cafe-pay.webp"
-                    alt={t("landing.featQrAlt2")}
-                    width={1200}
-                    height={860}
-                    className="h-44 w-full object-cover sm:h-56"
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-cream-100">
-                  <ScanLine className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t("landing.featQrTitle")}</h2>
-                <p className="mt-3 text-warm-600 leading-relaxed">{t("landing.featQrBody")}</p>
-              </div>
-            </div>
-
-            {/* Worldwide */}
-            <div className="grid items-center gap-8 lg:grid-cols-2">
-              <div className="order-2 lg:order-1">
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-cream-100">
-                  <Globe2 className="h-5 w-5" />
-                </div>
-                <div className="mb-2 inline-flex rounded-full bg-cream-300 px-2.5 py-0.5 text-[11px] font-semibold">
-                  {t("landing.featWorldBadge")}
-                </div>
-                <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t("landing.featWorldTitle")}</h2>
-                <p className="mt-3 text-warm-600 leading-relaxed">{t("landing.featWorldBody")}</p>
-              </div>
-              <div className="order-1 grid grid-cols-2 gap-3 lg:order-2">
-                <div className="overflow-hidden rounded-3xl ring-1 ring-cream-300">
-                  <Image
-                    src="/landing/travel.webp"
-                    alt={t("landing.featWorldAlt")}
-                    width={666}
-                    height={1000}
-                    className="h-56 w-full object-cover"
-                  />
-                </div>
-                <div className="overflow-hidden rounded-3xl ring-1 ring-cream-300">
-                  <Image
-                    src="/landing/contactless.webp"
-                    alt={t("landing.featWorldAlt2")}
-                    width={666}
-                    height={1000}
-                    className="h-56 w-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Shopping + agent */}
-            <div className="grid gap-8 lg:grid-cols-2">
-              <article className="overflow-hidden rounded-[1.75rem] bg-cream-200 ring-1 ring-cream-300">
-                <Image
-                  src="/landing/shop-online.webp"
-                  alt={t("landing.featShopAlt")}
-                  width={1200}
-                  height={800}
-                  className="h-48 w-full object-cover"
-                />
-                <div className="p-6">
+          <div className="mx-auto max-w-6xl space-y-10 px-4 sm:px-6">
+            <Reveal>
+              <div className="grid gap-4 md:grid-cols-2">
+                <article className="rounded-[1.75rem] bg-cream-200 p-6 ring-1 ring-cream-300 sm:p-8">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-cream-100">
+                    <ScanLine className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-xl font-semibold sm:text-2xl">{t("landing.featQrTitle")}</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-warm-600 sm:text-base">{t("landing.featQrBody")}</p>
+                </article>
+                <article className="rounded-[1.75rem] bg-cream-200 p-6 ring-1 ring-cream-300 sm:p-8">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-cream-100">
+                    <Globe2 className="h-5 w-5" />
+                  </div>
+                  <div className="mb-2 inline-flex rounded-full bg-cream-300 px-2.5 py-0.5 text-[11px] font-semibold">
+                    {t("landing.featWorldBadge")}
+                  </div>
+                  <h2 className="text-xl font-semibold sm:text-2xl">{t("landing.featWorldTitle")}</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-warm-600 sm:text-base">{t("landing.featWorldBody")}</p>
+                </article>
+                <article className="rounded-[1.75rem] bg-cream-200 p-6 ring-1 ring-cream-300 sm:p-8">
                   <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-ink text-cream-100">
                     <ShoppingBag className="h-5 w-5" />
                   </div>
-                  <h2 className="text-xl font-semibold">{t("landing.featShopTitle")}</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-warm-600">{t("landing.featShopBody")}</p>
-                </div>
-              </article>
-              <article className="rounded-[1.75rem] bg-ink p-6 text-cream-100 sm:p-8">
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cream-100 text-ink">
-                  <Bot className="h-5 w-5" />
-                </div>
-                <h2 className="text-xl font-semibold">{t("landing.featAgentTitle")}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-cream-400">{t("landing.featAgentBody")}</p>
-              </article>
-            </div>
+                  <h2 className="text-xl font-semibold sm:text-2xl">{t("landing.featShopTitle")}</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-warm-600 sm:text-base">{t("landing.featShopBody")}</p>
+                </article>
+                <article className="rounded-[1.75rem] bg-ink p-6 text-cream-100 sm:p-8">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cream-100 text-ink">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <h2 className="text-xl font-semibold sm:text-2xl">{t("landing.featAgentTitle")}</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-cream-400 sm:text-base">{t("landing.featAgentBody")}</p>
+                </article>
+              </div>
+            </Reveal>
           </div>
         </section>
 
-        {/* How it works */}
         <section id="how" className="py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.howTitle")}</h2>
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {[
-                ["01", "landing.how1Title", "landing.how1Body"],
-                ["02", "landing.how2Title", "landing.how2Body"],
-                ["03", "landing.how3Title", "landing.how3Body"],
-              ].map(([n, title, body]) => (
-                <div key={n} className="rounded-[1.75rem] bg-cream-100 p-6 ring-1 ring-cream-300">
-                  <p className="text-xs font-semibold tracking-widest text-warm-500">{n}</p>
-                  <h3 className="mt-2 text-lg font-semibold">{t(title)}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-warm-600">{t(body)}</p>
-                </div>
-              ))}
-            </div>
+            <Reveal>
+              <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.howTitle")}</h2>
+              <div className="mt-10 grid gap-4 md:grid-cols-3">
+                {[
+                  ["01", "landing.how1Title", "landing.how1Body"],
+                  ["02", "landing.how2Title", "landing.how2Body"],
+                  ["03", "landing.how3Title", "landing.how3Body"],
+                ].map(([n, title, body]) => (
+                  <div key={n} className="rounded-[1.75rem] bg-cream-100 p-6 ring-1 ring-cream-300">
+                    <p className="text-xs font-semibold tracking-widest text-warm-500">{n}</p>
+                    <h3 className="mt-2 text-lg font-semibold">{t(title)}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-warm-600">{t(body)}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
           </div>
         </section>
 
-        {/* Trust */}
         <section className="border-y border-cream-300 bg-cream-100/70 py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.trustTitle")}</h2>
-            <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {(
-                [
-                  { Icon: Shield, key: "landing.trust1" },
-                  { Icon: KeyRound, key: "landing.trust2" },
-                  { Icon: Gauge, key: "landing.trust3" },
-                  { Icon: FlaskConical, key: "landing.trust4" },
-                ] as const
-              ).map(({ Icon, key }) => (
-                <div
-                  key={key}
-                  className="flex items-start gap-3 rounded-2xl bg-cream-200 px-4 py-4 ring-1 ring-cream-300"
-                >
-                  <Icon className="mt-0.5 h-5 w-5 shrink-0" />
-                  <p className="text-sm font-medium leading-snug">{t(key)}</p>
-                </div>
-              ))}
-            </div>
+            <Reveal>
+              <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.trustTitle")}</h2>
+              <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {(
+                  [
+                    { Icon: Shield, key: "landing.trust1" },
+                    { Icon: KeyRound, key: "landing.trust2" },
+                    { Icon: Gauge, key: "landing.trust3" },
+                    { Icon: FlaskConical, key: "landing.trust4" },
+                  ] as const
+                ).map(({ Icon, key }) => (
+                  <div
+                    key={key}
+                    className="flex items-start gap-3 rounded-2xl bg-cream-200 px-4 py-4 ring-1 ring-cream-300"
+                  >
+                    <Icon className="mt-0.5 h-5 w-5 shrink-0" />
+                    <p className="text-sm font-medium leading-snug">{t(key)}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
           </div>
         </section>
 
-        {/* QR rails */}
         <section className="py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.railsTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-warm-600">{t("landing.railsHint")}</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-2">
-              {RAILS.map((k) => (
-                <span
-                  key={k}
-                  className="rounded-full bg-cream-100 px-4 py-2 text-sm font-medium ring-1 ring-cream-300"
-                >
-                  {t(k)}
-                </span>
-              ))}
-            </div>
-            <div className="mx-auto mt-10 max-w-3xl overflow-hidden rounded-[1.75rem] ring-1 ring-cream-300">
-              <Image
-                src="/landing/local-food.webp"
-                alt={t("landing.railsPhotoAlt")}
-                width={1200}
-                height={860}
-                className="h-48 w-full object-cover sm:h-64"
-              />
-            </div>
+            <Reveal>
+              <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.railsTitle")}</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-warm-600">{t("landing.railsHint")}</p>
+              <div className="mt-8 flex flex-wrap justify-center gap-2">
+                {RAILS.map((k) => (
+                  <span
+                    key={k}
+                    className="rounded-full bg-cream-100 px-4 py-2 text-sm font-medium ring-1 ring-cream-300"
+                  >
+                    {t(k)}
+                  </span>
+                ))}
+              </div>
+            </Reveal>
           </div>
         </section>
 
-        {/* FAQ */}
         <section id="faq" className="border-t border-cream-300 bg-cream-100/70 py-16">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
-            <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.faqTitle")}</h2>
-            <div className="mt-8 space-y-3">
-              {FAQ.map(([q, a]) => (
-                <FaqItem key={q} q={t(q)} a={t(a)} />
-              ))}
-            </div>
+            <Reveal>
+              <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.faqTitle")}</h2>
+              <div className="mt-8 space-y-3">
+                {FAQ.map(([q, a]) => (
+                  <FaqItem key={q} q={t(q)} a={t(a)} />
+                ))}
+              </div>
+            </Reveal>
           </div>
         </section>
       </main>
@@ -385,18 +310,9 @@ export function LandingPage() {
             >
               <Code2 className="h-4 w-4" /> {t("landing.footerGithub")}
             </a>
-            <a href="/landing/CREDITS.md" className="font-medium underline-offset-2 hover:underline">
-              {t("landing.footerCredits")}
-            </a>
-            {hasSession ? (
-              <Link href="/app" className="font-medium underline-offset-2 hover:underline">
-                {t("landing.ctaOpenApp")}
-              </Link>
-            ) : (
-              <button type="button" className="font-medium underline-offset-2 hover:underline" onClick={launch}>
-                {t("landing.ctaLaunch")}
-              </button>
-            )}
+            <Link href={primaryHref} className="font-medium underline-offset-2 hover:underline">
+              {hasSession ? t("landing.ctaOpenApp") : t("landing.ctaLaunch")}
+            </Link>
           </div>
         </div>
       </footer>

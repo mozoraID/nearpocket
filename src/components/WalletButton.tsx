@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Wallet,
   LogOut,
@@ -40,6 +42,7 @@ type Stage =
 
 export function WalletButton() {
   const t = useT();
+  const pathname = usePathname();
   const accountId = useNearPocketStore((s) => s.accountId);
   const demoMode = useNearPocketStore((s) => s.demoMode);
   const authMethod = useNearPocketStore((s) => s.authMethod);
@@ -255,17 +258,13 @@ export function WalletButton() {
           <span className="truncate">{accountId}</span>
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={() => {
-            setStage("menu");
-            setOpen(true);
-          }}
+        <Link
+          href={`/login?next=${encodeURIComponent(pathname || "/app")}`}
           className="flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
         >
           <Wallet className="h-4 w-4" />
           {t("auth.signIn")}
-        </button>
+        </Link>
       )}
 
       <Sheet

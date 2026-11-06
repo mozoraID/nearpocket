@@ -202,23 +202,16 @@ export const id: Dict = {
   "landing.navFeatures": "Fitur",
   "landing.navHow": "Cara kerja",
   "landing.navFaq": "FAQ",
-  "landing.heroPhotoAlt": "Pelanggan membayar dengan ponsel di kasir toko",
-  "landing.mockAlt": "Tampilan mockup beranda aplikasi NearPocket",
 
   "landing.featQrTitle": "Scan QRIS & QR ASEAN",
   "landing.featQrBody": "Bayar di warung, kafe, dan toko di Indonesia serta ASEAN dengan alur scan yang sama. Rel QR lintas negara — settlement demo via sandbox PJP berizin.",
-  "landing.featQrAlt": "Buah segar di lapak pasar",
-  "landing.featQrAlt2": "Pelanggan membayar dengan kartu di kasir kafe",
 
   "landing.featWorldTitle": "Bayar ke seluruh dunia",
   "landing.featWorldBody": "NearPocket Card adalah demo debit virtual untuk tempat tanpa QR. Diselesaikan via NEAR Intents. Mitra kartu: demo — bukan kartu near.com yang live.",
-  "landing.featWorldAlt": "Traveler berjalan di gang di luar negeri",
-  "landing.featWorldAlt2": "Pembayaran contactless dengan wearable di terminal",
   "landing.featWorldBadge": "Mitra kartu · demo",
 
   "landing.featShopTitle": "Belanja di marketplace terhubung",
   "landing.featShopBody": "Cari di marketplace yang kamu hubungkan. Connect masih demo berlabel — belum OAuth sungguhan. Beli sekarang atau minta agen menunggu diskon.",
-  "landing.featShopAlt": "Seseorang menelusuri produk di laptop di kafe",
 
   "landing.featAgentTitle": "Agen belanja yang butuh persetujuanmu",
   "landing.featAgentBody": "Atur anggaran dan tenggat. Agen memasukkan deal ke antrean dan tidak pernah belanja tanpa OK on-chain darimu. Batas kebijakan ada di testnet.",
@@ -258,7 +251,16 @@ export const id: Dict = {
 
   "landing.footerBuilt": "Dibuat untuk NEAR Hackathon",
   "landing.footerGithub": "GitHub",
-  "landing.footerCredits": "Kredit foto",
   "landing.footerTestnet": "Hanya NEAR testnet · tanpa uang sungguhan",
-  "landing.railsPhotoAlt": "Mie lokal di warung — bayar dengan QR",
+  "landing.carouselLabel": "Layar produk NearPocket",
+  "landing.carouselPrev": "Layar sebelumnya",
+  "landing.carouselNext": "Layar berikutnya",
+  "landing.slideHome": "Beranda · saldo USDC & aktivitas",
+  "landing.slideHomeAlt": "Layar beranda NearPocket menampilkan saldo USDC dan aktivitas",
+  "landing.slidePay": "Scan QRIS · bayar mata uang lokal",
+  "landing.slidePayAlt": "Konfirmasi Scan & Pay NearPocket untuk pembayaran QRIS",
+  "landing.slideCard": "NearPocket Card · bayar global (demo)",
+  "landing.slideCardAlt": "Layar demo NearPocket Card debit virtual",
+  "landing.slideShop": "Belanja · agen butuh persetujuanmu",
+  "landing.slideShopAlt": "Layar belanja NearPocket dengan antrean persetujuan agen",
 };

@@ -202,23 +202,16 @@ export const en: Dict = {
   "landing.navFeatures": "Features",
   "landing.navHow": "How it works",
   "landing.navFaq": "FAQ",
-  "landing.heroPhotoAlt": "Customer paying with a phone at a shop counter",
-  "landing.mockAlt": "NearPocket app home screen mockup",
 
   "landing.featQrTitle": "Scan QRIS & ASEAN QR",
   "landing.featQrBody": "Pay at warungs, cafés, and stores across Indonesia and ASEAN with the same scan flow. Cross-border QR rails — demo settlement via a licensed PJP sandbox.",
-  "landing.featQrAlt": "Fresh produce at a street market stall",
-  "landing.featQrAlt2": "Customer paying by card at a café counter",
 
   "landing.featWorldTitle": "Pay worldwide",
   "landing.featWorldBody": "NearPocket Card is a virtual debit demo for places without QR. Settled via NEAR Intents. Card partner: demo — not a live near.com card.",
-  "landing.featWorldAlt": "Traveler walking through a narrow street abroad",
-  "landing.featWorldAlt2": "Contactless payment with a wearable at a terminal",
   "landing.featWorldBadge": "Card partner · demo",
 
   "landing.featShopTitle": "Shop connected marketplaces",
   "landing.featShopBody": "Search across marketplaces you connect. Connect is a labeled demo — no real OAuth yet. Buy now or ask the agent to watch a deal.",
-  "landing.featShopAlt": "Someone browsing products on a laptop in a café",
 
   "landing.featAgentTitle": "Shopping agent that needs your approval",
   "landing.featAgentBody": "Set a budget and deadline. The agent waitlists deals and never spends without your on-chain OK. Policy limits live on testnet.",
@@ -258,7 +251,16 @@ export const en: Dict = {
 
   "landing.footerBuilt": "Built for NEAR Hackathon",
   "landing.footerGithub": "GitHub",
-  "landing.footerCredits": "Photo credits",
   "landing.footerTestnet": "NEAR testnet only · no real money",
-  "landing.railsPhotoAlt": "Local noodle soup at a neighborhood eatery — pay with QR",
+  "landing.carouselLabel": "NearPocket product screens",
+  "landing.carouselPrev": "Previous screen",
+  "landing.carouselNext": "Next screen",
+  "landing.slideHome": "Home · USDC balance & activity",
+  "landing.slideHomeAlt": "NearPocket home screen showing USDC balance and recent activity",
+  "landing.slidePay": "Scan QRIS · pay in local currency",
+  "landing.slidePayAlt": "NearPocket Scan & Pay confirmation for a QRIS payment",
+  "landing.slideCard": "NearPocket Card · worldwide pay (demo)",
+  "landing.slideCardAlt": "NearPocket Card virtual debit demo screen",
+  "landing.slideShop": "Shop · agent needs your approval",
+  "landing.slideShopAlt": "NearPocket shop screen with agent approval waitlist",
 };
