@@ -96,11 +96,11 @@ export const en: Dict = {
   "merchant.g1Title": "1. Create your QR",
   "merchant.g1Body": "Enter your store name and amount (or leave amount empty). NearPocket builds a standard EMVCo QRIS.",
   "merchant.g2Title": "2. Customer pays",
-  "merchant.g2Body": "They open Bayar, scan your QR, confirm the USDC amount, and tap Pay.",
+  "merchant.g2Body": "They open Pay, scan your QR, confirm the USDC amount, and tap Pay.",
   "merchant.g3Title": "3. You receive local currency",
   "merchant.g3Body": "A licensed PJP (e.g. Xendit in sandbox) pays you in local fiat. Crypto never lands in your till.",
   "merchant.g4Title": "4. See payments",
-  "merchant.g4Body": "Every payment appears in Aktivitas with a receipt and partner reference.",
+  "merchant.g4Body": "Every payment appears in Activity with a receipt and partner reference.",
 
   "shop.searchPlaceholder": "What do you want to buy?",
   "shop.results": "Results for “{q}”",

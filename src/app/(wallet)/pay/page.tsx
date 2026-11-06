@@ -356,7 +356,7 @@ function PayInner() {
         <button type="button" className="btn-primary w-full" onClick={reset}>
           Done
         </button>
-        <button type="button" className="btn-secondary w-full" onClick={() => router.push("/aktivitas")}>
+        <button type="button" className="btn-secondary w-full" onClick={() => router.push("/activity")}>
           View activity
         </button>
       </main>

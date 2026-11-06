@@ -44,5 +44,5 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "description": "NearPocket — Your NEAR pocket for real-world money. QRIS, Intents, merchant shopping & agent waitlists."
+  "description": "NEAR-native wallet for local QR rails across Asia, worldwide USD card via NEAR Intents, marketplace shopping, and a shopping agent with on-chain approval."
 }

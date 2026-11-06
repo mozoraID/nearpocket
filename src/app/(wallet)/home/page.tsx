@@ -118,7 +118,7 @@ export default function HomePage() {
           <span className="text-sm font-semibold">{t("home.topUp")}</span>
         </button>
         <Link
-          href="/belanja"
+          href="/shop"
           className="flex flex-col items-center gap-2 rounded-3xl bg-cream-100 px-2 py-4 ring-1 ring-cream-300"
         >
           <ShoppingBag className="h-6 w-6" />
@@ -129,7 +129,7 @@ export default function HomePage() {
       <section className="mt-7">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-base font-semibold">{t("home.recent")}</h2>
-          <Link href="/aktivitas" className="flex items-center text-sm text-warm-600">
+          <Link href="/activity" className="flex items-center text-sm text-warm-600">
             {t("home.seeAll")} <ChevronRight className="h-4 w-4" />
           </Link>
         </div>

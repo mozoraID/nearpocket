@@ -1,68 +1,61 @@
-# NearPocket — Your NEAR pocket for real-world money
+# NearPocket
 
-> Product name lives in [`src/config/brand.ts`](src/config/brand.ts).
+**Your NEAR pocket for real-world money**
 
-**NEAR HACKATHON** · tracks: `realworld` (+ `agents`)
+[![Live demo](https://img.shields.io/badge/demo-nearpocket.vercel.app-111111)](https://nearpocket.vercel.app)
+[![NEAR Hackathon](https://img.shields.io/badge/NEAR%20Hackathon-realworld%20%2B%20agents-00C08B)](https://near.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A **NEAR-native** wallet that feels like a normal payment app: scan QRIS (and ASEAN QR corridors), pay worldwide via **NEAR Intents / 1Click** → native USDC on NEAR → card/link rails, shop or sell as a merchant, and run **shopping plans** where an agent searches multiple marketplaces — **you approve every purchase** via an on-chain spend-policy contract and function-call access keys.
+**Live:** https://nearpocket.vercel.app  
+**Repo:** https://github.com/mozoraID/nearpocket  
+**Tracks:** `realworld` · `agents`
 
-**Live demo:** https://nearpocket.vercel.app  
-**Team alias:** https://nearpocket-ijustabi.vercel.app  
-**Legacy URL (still works):** https://nearly-ijustabi.vercel.app  
-**Repo:** https://github.com/mozoraID/nearpocket
+NearPocket is a **NEAR-native** mobile wallet that feels like a normal payments app:
+
+- **Pay local QR** in Indonesia (QRIS), Thailand (PromptPay), Malaysia (DuitNow), Singapore (PayNow / SGQR), Philippines (QR Ph), Vietnam (VietQR), Japan (JPQR), South Korea (Korea QR), India (UPI · demo)
+- **Pay worldwide** with NearPocket Card in **USD** (and EUR/GBP display) via **NEAR Intents / 1Click** → native USDC on NEAR
+- **Shop** connected marketplaces; a **shopping agent** waitlists deals and **never spends without your on-chain approval**
+
+Cream + black UI · EN default · Bahasa Indonesia and other locales via i18n · testnet only.
 
 ---
 
-## Problem
+## Screenshots
 
-People hold stablecoins on NEAR but still pay warungs and online stores with local rails (QRIS, PromptPay, cards…). They also want an agent that can **plan** a shopping list across Tokopedia / Shopee / Lazada / Amazon — without giving the agent unlimited keys.
-
-## Solution
-
-Mobile-first app (cream + black, 390px column) with four tabs:
-
-| Tab | What you do |
-| --- | --- |
-| **Home** | Balance (USDC on NEAR + rupiah estimate with FX source + time), Scan & Pay / Top up / Belanja, agent approvals, recent activity. Globe language switcher + Settings. |
-| **Bayar** | Camera QR scanner (html5-qrcode) + upload / paste / sample. Confirm → FX (Frankfurter + open.er-api cross-check) → Pay → Xendit QRIS sandbox. **Pay worldwide** = NearPocket Card (virtual debit UI, freeze, limit, top-up via Intents; card partner: demo — not issued by near.com). **Receive as merchant** with 4-step tutorial. |
-| **Belanja** | Connect marketplaces per country (Tokopedia, Shopee, Lazada, Blibli, Rakuten, Amazon JP, Coupang, Amazon, eBay, AliExpress — demo connect). Search only connected ones. Each result: mark + name, Overview sheet, Open in marketplace (real search URL). Buy now / Ask agent. Floating **Ask agent** chat bubble. Spending limits: *Agent spent today* only (QRIS/card excluded); Save signs `set_policy` when a real wallet is connected. |
-| **Aktivitas** | Timeline of payments, purchases, card, top ups and agent actions; on-chain proof list. |
-| **Sign-in** | (1) Create wallet in browser (12-word backup + confirm + passcode-encrypted local key — never sent to server), (2) Connect NEAR wallet (Meteor / HOT / Intear / NEAR Mobile), (3) Continue with Google via Privy when `NEXT_PUBLIC_PRIVY_APP_ID` is set (otherwise Coming soon). Demo mode for judges. |
-| **i18n** | English + Bahasa Indonesia (full). Thai, Malay, Japanese, Korean, Chinese (partial, EN fallback). Persisted; auto-detect from browser. |
-| **Top up (beta)** | Bottom sheet from Home (demo USDC credit; NEAR option shows a live 1Click quote). |
-
-A small **Demo · testnet** pill opens a *How it works* sheet with the real-vs-demo list.
-
-| Home | Bayar (scan) | Receipt | Belanja |
+| Landing | Home | Pay confirm | Shop |
 | --- | --- | --- | --- |
-| ![Home](docs/screenshots/home.png) | ![Scan](docs/screenshots/pay-scan.png) | ![Receipt](docs/screenshots/receipt.png) | ![Belanja](docs/screenshots/belanja.png) |
+| ![Landing](docs/screenshots/landing.png) | ![Home](docs/screenshots/home.png) | ![Pay](docs/screenshots/pay-confirm.png) | ![Shop](docs/screenshots/shop.png) |
+
+---
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   User --> App[NearPocket App]
-  App --> QR[EMVCo Parser / Camera]
-  App --> Plans[Shopping Planner]
-  Plans --> MP[Marketplace Adapters]
-  App --> FX[FX Quote]
-  App --> Policy[Spend Policy]
+  App --> QR[EMVCo QR parser / camera]
+  App --> FX[FX quotes]
+  App --> Shop[Shop + Agent]
+  Shop --> MP[Marketplace adapters]
+  App --> Policy[Spend policy]
   Policy --> Chain[NEAR testnet agent-policy]
   App --> Intents[NEAR Intents 1Click]
   Intents --> USDC[Native USDC on NEAR]
-  App --> Settle[Settlement Router]
+  App --> Settle[Settlement router]
   Settle --> Xendit[Xendit sandbox]
   Settle --> Mock[Mock PJP]
-  Settle --> ZX[0xramp staging optional]
+  Settle --> Card[Virtual card demo]
 ```
 
-### How NEAR is used (hackathon-aligned)
+### How NEAR is used
 
-- **Native USDC on NEAR** for balances & settlement denomination.
-- **NEAR Intents / 1Click** for any-token → USDC routing (real dry quotes via public 1Click API when reachable; execution labeled until mainnet / partner JWT).
-- **On-chain agent-policy** at [`nearly-7b1462.testnet`](https://testnet.nearblocks.io/address/nearly-7b1462.testnet): daily limit, per-item max, approval gate, shopping plan upsert. *(Contract account id kept from pre-rebrand deploy — do not rename.)*
-- **Function-call access keys** scoped to policy methods so the agent can queue / request but **cannot spend without user approve**.
-- **Meteor Wallet** (primary) via wallet-selector + HOT / Intear / NEAR Mobile; Demo account for zero-setup. MyNearWallet not used (limited mode).
+| Capability | Detail |
+| --- | --- |
+| **Native USDC on NEAR** | Ledger denomination for balances & settlement |
+| **NEAR Intents / 1Click** | Any-token → USDC dry quotes via public 1Click API (execution labeled until mainnet / partner JWT) |
+| **On-chain agent-policy** | [`nearly-7b1462.testnet`](https://testnet.nearblocks.io/address/nearly-7b1462.testnet) — daily limit, per-item max, approval gate, plan upsert *(account id kept from pre-rebrand deploy)* |
+| **Function-call access keys** | Agent can queue / request; **cannot spend without user approve** |
+| **Wallets** | Meteor / HOT / Intear / NEAR Mobile via wallet-selector · create-in-browser encrypted seed · Google via Privy · Demo mode for judges |
 
 ### Sample on-chain txs (testnet)
 
@@ -75,29 +68,60 @@ flowchart LR
 | approve_spend | https://testnet.nearblocks.io/txns/Em45x6JBvu58xeVWxQm66hx2r6S4JYYxWbjeYtWoNpvD |
 | upsert_plan | https://testnet.nearblocks.io/txns/7nYrj1ECqyxWQXRJTL6a7iXcfdVq6mT81FbFYYN7wuSg |
 
-## Compliance
+---
 
-**Crypto is not a payment instrument in Indonesia (BI / OJK).**  
-NearPocket never sends crypto to merchants. Production: user USDC → licensed PJP → IDR/local fiat QRIS/card credit.
+## Product map
 
-## What’s real vs mocked
+| Route | What you do |
+| --- | --- |
+| `/` | Marketing landing (global QR rails + worldwide card) |
+| `/login` | Create wallet · Connect NEAR · Google/Privy · Try demo |
+| `/home` | USDC balance + ≈ display currency · Scan & Pay · Top up · Shop · agent approvals |
+| `/pay` | Camera / upload / paste / multi-country sample QR → confirm → settle |
+| `/shop` | Connect marketplaces · search · Buy now / Ask agent · spending limits |
+| `/activity` | Timeline of payments, purchases, card, top-ups, agent actions |
+| `/settings` | Language · **home country / display currency** · FX table · Sign out |
+
+Legacy paths `/belanja` → `/shop`, `/aktivitas` → `/activity`, `/app` → `/home` (308).
+
+**Display currencies:** USD / EUR / GBP (card) + IDR · THB · MYR · SGD · PHP · VND · JPY · KRW · INR. Auto-detect from locale/timezone; override in Settings.
+
+---
+
+## Real vs demo
 
 | Piece | Status |
 | --- | --- |
-| EMVCo parser + CRC + camera scan (+ image upload) | **Real** |
-| FX (Frankfurter + open.er-api cross-check) | **Real** when reachable; UI shows source + WIB time |
-| Agent-policy contract on testnet | **Real** (see txs above) |
-| On-chain policy view in UI | **Real** via RPC |
-| NEAR Intents 1Click dry quote | **Real** public dry quote → USDC on NEAR (execution / deposit still dry until mainnet JWT) |
-| Marketplace search | Connected-filter; **Amazon** via DummyJSON when reachable; others **mocked** with real marketplace search URLs (labeled) |
-| Xendit QRIS | **Real Test Mode** when `XENDIT_SECRET_KEY` has Money-in / QR Write; else mock / 403 labeled |
-| 0xramp | Staging adapter ready; **needs partner credentials** (no public USDC sandbox) |
-| NearPocket Card / top-up | **Mocked** virtual card UI (labeled Card partner: demo; Intents path real for quotes) |
-| Wallet login | **Meteor / HOT / Intear / NEAR Mobile** via wallet-selector; **Create-in-browser** local encrypted key; Demo account; Google/Privy behind env |
+| EMVCo parser + CRC + camera / upload | **Real** |
+| FX (Frankfurter/ECB + open.er-api cross-check) | **Real** when reachable; UI shows source + time |
+| Agent-policy contract on testnet | **Real** |
+| NEAR Intents 1Click dry quote | **Real** public dry quote → USDC on NEAR |
+| Marketplace search | Connected filter; Amazon via DummyJSON when reachable; others **mocked** with real search URLs (labeled) |
+| Xendit QRIS | **Real Test Mode** with `XENDIT_SECRET_KEY`; else mock / labeled |
+| NearPocket Card / top-up | **Demo** virtual card UI; Intents quotes real |
+| Wallet login | Meteor / HOT / Intear / NEAR Mobile · browser wallet · Privy Google · Demo |
+| PH / VN / IN QR corridors | **Demo**-labeled rails |
 
-**Not used (by design):** Onmeta, Alchemy Pay, or other non-NEAR-native ramps — stays aligned with the NEAR Hackathon program (Intents, chain abstraction, on-chain policy).
+**Not used (by design):** Onmeta, Alchemy Pay, or non-NEAR-native ramps — stays aligned with NEAR Hackathon (Intents, chain abstraction, on-chain policy).
 
-## How to run (zero secrets)
+**Compliance:** Crypto is not a payment instrument in many local markets (e.g. BI/OJK in Indonesia). NearPocket never sends crypto to merchants. Production path: user USDC → licensed partner → local fiat QR / card credit.
+
+---
+
+## Tech stack
+
+- **Next.js 15** (App Router) · TypeScript · Tailwind CSS
+- **Zustand** (persisted session + display currency)
+- **NEAR** wallet-selector · near-api-js · near-seed-phrase
+- **Privy** (optional Google → NEAR)
+- **EMVCo** merchant QR parser · html5-qrcode
+- **Frankfurter** + **open.er-api** FX
+- **Xendit** sandbox settlement adapter
+- Deployed on **Vercel**
+
+---
+
+## How to run
 
 ```bash
 npm install
@@ -112,52 +136,27 @@ Open http://localhost:3000.
 | --- | --- |
 | `NEXT_PUBLIC_NEAR_NETWORK` | `testnet` (default) |
 | `NEXT_PUBLIC_AGENT_POLICY_CONTRACT` | default `nearly-7b1462.testnet` |
-| `XENDIT_SECRET_KEY` | Xendit **test** secret (`xnd_development_…`) — enable Money-in / QR Code Write |
-| `ZEROXRAMP_PARTNER_ID` | 0xramp issued partner id |
-| `ZEROXRAMP_API_BASE_URL` | staging https origin |
-| `ZEROXRAMP_API_KEY` | optional bearer |
-| `NEAR_AI_API_KEY` / `OPENAI_API_KEY` | optional agent copy |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | Enable Google via Privy |
+| `XENDIT_SECRET_KEY` | Xendit test secret (`xnd_development_…`) |
+| `ZEROXRAMP_*` | Optional 0xramp partner credentials |
+| `NEAR_AI_API_KEY` / `OPENAI_API_KEY` | Optional agent copy enrichment |
 
-### Get a NEAR testnet account
+### Judge demo script (~2 min)
 
-1. Install / open **Meteor Wallet** and create a testnet account, **or**
-2. Use faucet helper: create a keypair and `POST https://helper.testnet.near.org/account` with `{ newAccountId, newAccountPublicKey }`, **or**
-3. Use `near-cli-rs`: `near account create-account sponsor-by-faucet-service <name>.testnet …`
-
-Then connect in the app via **Meteor Wallet** (or Demo account).
-
-### Deploy the policy contract yourself
-
-```bash
-# needs Rust + wasm32 target
-cd contracts/agent-policy
-cargo build --target wasm32-unknown-unknown --release
-# deploy wasm with near-api-js / near-cli to your testnet account, then call new(...)
-```
-
-Set `NEXT_PUBLIC_AGENT_POLICY_CONTRACT` to your account.
-
-### Demo script (AI screener)
-
-1. `/` → *Sign in* (Meteor / HOT / Intear / NEAR Mobile) or *Try demo*.
-2. `/pay` → camera opens (or tap **Use sample QRIS**) → merchant card + FX → **Pay** → progress → receipt (Xendit sandbox QR ref when `XENDIT_SECRET_KEY` is set).
-3. `/pay` → *Paste code* sheet → try 🇹🇭 PromptPay / 🇸🇬 NETS / 🇯🇵 JPQR samples.
-4. `/belanja` → search “Wireless earbuds” → **Ask agent** (budget + deadline) → **Approve** (policy-checked) or **Buy now**.
-5. `/aktivitas` → timeline + on-chain proof links.
-6. `/api/contract` → live on-chain policy + explorer links.
-7. `/api/quote?from=NEAR&amount=1` → real 1Click dry quote (or labeled fallback).
-
-Old routes `/scan`, `/shop`, `/plans`, `/agent`, `/topup` redirect to the new tabs.
+1. `/` → **Sign in** → **Try demo** (or Create wallet / Connect NEAR / Google).
+2. `/home` → note USDC + ≈ local currency; open Settings → pick **Thailand** or **Worldwide USD**.
+3. `/pay` → tap **🇹🇭 PromptPay** sample → confirm ฿ + USDC → **Pay**.
+4. `/shop` → search “earbuds” → **Ask agent** or **Buy now**.
+5. `/activity` → timeline + explorer links.
+6. `/api/contract` · `/api/quote?from=NEAR&amount=1` · `/api/fx?table=1`.
 
 ```bash
 npm run test:qris
 npm run build
 ```
 
-## 0xramp note
-
-Per [docs.0xramp.app](https://docs.0xramp.app): partner SDK embeds a pane for **ZEC ↔ local fiat**; environments are `production` / `staging` with issued `partnerId`. Local sandbox pane is host simulation only. There is **no** public keyless USDC→IDR REST sandbox like Xendit Test Mode. Adapter is implemented for when partner credentials arrive (`ZEROXRAMP_*`).
+---
 
 ## License
 
-MIT · Built at **NEAR HACKATHON**.
+MIT · Built at **NEAR Hackathon**.

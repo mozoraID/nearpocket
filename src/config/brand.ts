@@ -9,7 +9,7 @@ export const BRAND = {
   tagline: "Your NEAR pocket for real-world money",
   /** Longer blurb for metadata / README */
   description:
-    "NEAR-native wallet for QRIS & ASEAN QR, worldwide Intents routing to USDC, merchant shopping, and autonomous shopping plans with on-chain spend limits.",
+    "NEAR-native wallet for local QR rails across Asia (QRIS, PromptPay, DuitNow, PayNow, QR Ph, VietQR, JPQR, Korea QR, UPI), worldwide USD card via NEAR Intents, marketplace shopping, and a shopping agent with on-chain approval.",
   /** GitHub / Vercel slug */
   repoSlug: "nearpocket",
   githubUrl: "https://github.com/mozoraID/nearpocket",

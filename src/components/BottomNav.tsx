@@ -12,8 +12,8 @@ export function BottomNav() {
   const items = [
     { href: "/home", label: t("nav.home"), icon: Home },
     { href: "/pay", label: t("nav.pay"), icon: ScanLine },
-    { href: "/belanja", label: t("nav.shop"), icon: ShoppingBag },
-    { href: "/aktivitas", label: t("nav.activity"), icon: ReceiptText },
+    { href: "/shop", label: t("nav.shop"), icon: ShoppingBag },
+    { href: "/activity", label: t("nav.activity"), icon: ReceiptText },
   ];
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40">

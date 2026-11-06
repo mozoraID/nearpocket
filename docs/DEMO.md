@@ -2,30 +2,31 @@
 
 **Do not post automatically.** Abi posts on X.
 
-## Shot list (≈80 seconds)
+## Shot list (~80 seconds)
 
-Record on a phone (or DevTools 390×844) at https://nearpocket.vercel.app. Tabs: **Home · Bayar · Belanja · Aktivitas**. Language globe + Settings in the header. Floating **Ask agent** bubble above the nav.
+Record on a phone (or DevTools 390×844) at https://nearpocket.vercel.app.  
+Tabs: **Home · Pay · Shop · Activity**. Language globe + Settings in the header.
 
 | t | Shot | VO / on-screen text |
 | --- | --- | --- |
-| 0–6s | **Home**: balance + FX line (Frankfurter · WIB). Tap globe → Bahasa Indonesia. Sign in sheet: Create wallet / Connect NEAR / Google (coming soon) / Try demo | “I hold USDC on NEAR. NearPocket speaks my language.” |
-| 6–22s | **Bayar** → camera → scan real/sample QRIS → confirm + FX source → **Pay** → Xendit paid | “Scan. A licensed partner pays the merchant in rupiah.” |
-| 22–34s | *Pay worldwide* → NearPocket Card (masked, freeze, limit, top-up) → 3-step how-to → demo pay | “No QR? NearPocket Card — issued by a card partner, settled via NEAR Intents. near.com cards are announced, not live — this is a demo.” |
-| 34–42s | *Receive as merchant* → guide sheet (4 steps) → show QR | “Merchants get a QR and IDR via the licensed PJP.” |
-| 42–58s | **Belanja**: connect marketplaces (ID) → search earbuds → mark + Overview + Open in Tokopedia → Ask agent | “Connect the stores you use. Results come only from those.” |
-| 58–70s | Floating chat: “cari earbuds di bawah 300rb sebelum Jumat” → waitlist → Approve (agent spent today) | “Tell the agent in chat. It can’t spend without me — limits live on-chain.” |
-| 70–80s | End card: logo + repo + live URL | “NearPocket — your NEAR pocket for real-world money.” |
+| 0–8s | **Landing** → Sign in → Try demo. Home: USDC + ≈ display currency | “I hold USDC on NEAR. NearPocket pays local QR and worldwide.” |
+| 8–22s | **Pay** → 🇹🇭 PromptPay sample → confirm FX → **Pay** | “Scan any supported local QR. A licensed partner pays the merchant in local fiat.” |
+| 22–34s | *Pay worldwide* → NearPocket Card (freeze, limit, top-up) | “No QR? NearPocket Card — USD via NEAR Intents. Demo card partner.” |
+| 34–48s | **Shop**: search earbuds → Ask agent / Buy now | “Shop connected marketplaces. The agent waitlists; I approve.” |
+| 48–60s | Settings → switch home currency (e.g. THB ↔ USD) · FX table | “One wallet, your display currency, rates from Frankfurter + open.er-api.” |
+| 60–72s | **Activity** timeline + on-chain proof | “Every spend is logged. Agent limits live on NEAR testnet.” |
+| 72–80s | End card: logo + repo + live URL | “NearPocket — your NEAR pocket for real-world money.” |
 
 ## Draft X post
 
 ```
-Warungs don’t take USDC. NearPocket fixes that — without breaking the rules.
+Stablecoins on NEAR. Real-world money everywhere.
 
-Scan QRIS (and ASEAN QR rails) → USDC on NEAR → licensed PJP pays the merchant in local fiat.
-Worldwide? NearPocket Card (demo) settled via NEAR Intents.
-Shop across connected marketplaces. Ask the agent in chat — it waitlists, you approve (on-chain policy).
+NearPocket: scan local QR (QRIS, PromptPay, DuitNow, PayNow, QR Ph, VietQR, JPQR, Korea QR…) → licensed partner pays the merchant in local fiat.
+Worldwide? NearPocket Card in USD via NEAR Intents.
+Shop with an agent that cannot spend without your on-chain OK.
 
-Built at NEAR HACKATHON — realworld + agents.
+Built at NEAR Hackathon — realworld + agents.
 
 Demo: https://nearpocket.vercel.app
 Repo: https://github.com/mozoraID/nearpocket

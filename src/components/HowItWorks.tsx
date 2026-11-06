@@ -62,7 +62,7 @@ export function HowItWorksSheet({ open, onClose }: { open: boolean; onClose: () 
       </div>
       <p className="mt-4 text-xs text-warm-600">
         Crypto is not a payment instrument in Indonesia, so USDC is converted by a licensed PJP before
-        the merchant is paid in rupiah. Contract:{" "}
+        the merchant is paid in local fiat. Contract:{" "}
         <a
           className="underline"
           href={explorerAccountUrl(NEAR_CONFIG.agentPolicyContract)}
