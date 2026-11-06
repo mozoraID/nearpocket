@@ -16,6 +16,8 @@ import { useNearPocketStore } from "@/lib/store";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { useT } from "@/lib/i18n";
 import { Sheet } from "./Sheet";
+import { GoogleLoginButton } from "./GoogleLoginButton";
+import { PRIVY_APP_ID } from "./PrivyClientProvider";
 import {
   clearLocalWallet,
   generateLocalWallet,
@@ -26,8 +28,6 @@ import {
   unlockSecretKey,
   type GeneratedWallet,
 } from "@/lib/wallet/local";
-
-const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
 
 type Stage =
   | "menu"
@@ -287,26 +287,19 @@ export function WalletButton() {
             </button>
             <p className="text-center text-xs text-warm-500">{t("auth.connectHint")}</p>
 
-            <button
-              type="button"
-              className="btn-outline w-full"
-              disabled={!PRIVY_APP_ID}
-              title={!PRIVY_APP_ID ? t("auth.googleNeedId") : undefined}
-              onClick={() => {
-                if (!PRIVY_APP_ID) return;
-                setError("Privy SDK is wired behind NEXT_PUBLIC_PRIVY_APP_ID — restart after setting it.");
-              }}
-            >
-              <Globe className="h-5 w-5" />
-              {t("auth.google")}
-              {!PRIVY_APP_ID && (
-                <span className="ml-1 rounded-full bg-cream-300 px-2 py-0.5 text-[10px] font-semibold text-ink">
-                  {t("common.comingSoon")}
-                </span>
-              )}
-            </button>
-            {!PRIVY_APP_ID && (
-              <p className="text-xs text-warm-600">{t("auth.googleNeedId")}</p>
+            {PRIVY_APP_ID ? (
+              <GoogleLoginButton onDone={close} />
+            ) : (
+              <>
+                <button type="button" className="btn-outline w-full" disabled title={t("auth.googleNeedId")}>
+                  <Globe className="h-5 w-5" />
+                  {t("auth.google")}
+                  <span className="ml-1 rounded-full bg-cream-300 px-2 py-0.5 text-[10px] font-semibold text-ink">
+                    {t("common.comingSoon")}
+                  </span>
+                </button>
+                <p className="text-xs text-warm-600">{t("auth.googleNeedId")}</p>
+              </>
             )}
 
             <button

@@ -2,6 +2,7 @@
 
 import { BottomNav } from "./BottomNav";
 import { LanguageProvider } from "@/lib/i18n";
+import { PrivyClientProvider } from "./PrivyClientProvider";
 import { useNearPocketStore } from "@/lib/store";
 import { useEffect } from "react";
 
@@ -25,8 +26,10 @@ function ShellInner({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <LanguageProvider>
-      <ShellInner>{children}</ShellInner>
-    </LanguageProvider>
+    <PrivyClientProvider>
+      <LanguageProvider>
+        <ShellInner>{children}</ShellInner>
+      </LanguageProvider>
+    </PrivyClientProvider>
   );
 }
