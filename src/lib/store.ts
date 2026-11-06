@@ -12,7 +12,25 @@ import type { ShoppingPlan } from "./agent/plans";
 import type { SettlementReceipt } from "./settlement/types";
 import { DEMO_ACCOUNT } from "./near/config";
 
+export type ActivityKind = "payment" | "agent" | "topup" | "purchase";
+
+export interface ActivityEntry {
+  id: string;
+  at: string;
+  kind: ActivityKind;
+  title: string;
+  detail?: string;
+  status?: string;
+  amountUsdc?: number;
+  /** positive = money in */
+  direction?: "in" | "out";
+  link?: { label: string; href: string };
+  receiptId?: string;
+}
+
 interface NearPocketState {
+  activity: ActivityEntry[];
+  logActivity: (e: Omit<ActivityEntry, "id" | "at"> & { at?: string }) => void;
   accountId: string | null;
   demoMode: boolean;
   balanceUsdc: number;
@@ -45,6 +63,18 @@ export const useNearPocketStore = create<NearPocketState>()(
       waitlist: [],
       plans: [],
       receipts: [],
+      activity: [],
+      logActivity: (e) =>
+        set({
+          activity: [
+            {
+              ...e,
+              id: `act_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+              at: e.at || new Date().toISOString(),
+            },
+            ...get().activity,
+          ].slice(0, 80),
+        }),
       connectDemo: () =>
         set({
           accountId: DEMO_ACCOUNT.accountId,

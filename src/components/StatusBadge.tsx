@@ -1,27 +1,36 @@
 import clsx from "clsx";
 
 const tones: Record<string, string> = {
-  paid: "bg-emerald-500/20 text-emerald-300",
-  mocked: "bg-amber-500/20 text-amber-200",
-  awaiting_approval: "bg-fuchsia-500/20 text-fuchsia-200",
-  watching: "bg-sky-500/20 text-sky-200",
-  ready: "bg-cyan-500/20 text-cyan-200",
-  queued: "bg-slate-500/20 text-slate-200",
-  approved: "bg-emerald-500/20 text-emerald-300",
-  rejected: "bg-rose-500/20 text-rose-200",
-  purchased: "bg-emerald-500/20 text-emerald-300",
-  failed: "bg-rose-500/20 text-rose-200",
+  paid: "bg-[#e3eedb] text-[#2f5a1f]",
+  purchased: "bg-[#e3eedb] text-[#2f5a1f]",
+  approved: "bg-[#e3eedb] text-[#2f5a1f]",
+  completed: "bg-[#e3eedb] text-[#2f5a1f]",
+  active: "bg-[#e3eedb] text-[#2f5a1f]",
+  mocked: "bg-cream-300 text-warm-600",
+  awaiting_approval: "bg-ink text-cream-100",
+  ready: "bg-[#f4e3c7] text-[#7a4b0c]",
+  watching: "bg-[#e6e1f2] text-[#463a73]",
+  searching: "bg-[#e6e1f2] text-[#463a73]",
+  queued: "bg-cream-300 text-warm-600",
+  rejected: "bg-[#f4dcd6] text-[#8a2d1c]",
+  failed: "bg-[#f4dcd6] text-[#8a2d1c]",
+  expired: "bg-cream-300 text-warm-600",
+};
+
+const labels: Record<string, string> = {
+  awaiting_approval: "Needs you",
+  mocked: "Demo",
 };
 
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={clsx(
-        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-        tones[status] || "bg-slate-500/20 text-slate-300",
+        "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize",
+        tones[status] || "bg-cream-300 text-warm-600",
       )}
     >
-      {status.replace(/_/g, " ")}
+      {labels[status] || status.replace(/_/g, " ")}
     </span>
   );
 }

@@ -2,42 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, QrCode, Store, ClipboardList, WalletCards } from "lucide-react";
+import { Home, ScanLine, ShoppingBag, ReceiptText } from "lucide-react";
 import clsx from "clsx";
 
 const items = [
-  { href: "/", label: "Wallet", icon: Home },
-  { href: "/pay", label: "Pay QR", icon: QrCode },
-  { href: "/scan", label: "Scan", icon: QrCode },
-  { href: "/plans", label: "Plans", icon: ClipboardList },
-  { href: "/shop", label: "Shop", icon: Store },
-  { href: "/topup", label: "Top up", icon: WalletCards },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/pay", label: "Bayar", icon: ScanLine },
+  { href: "/belanja", label: "Belanja", icon: ShoppingBag },
+  { href: "/aktivitas", label: "Aktivitas", icon: ReceiptText },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-[#0b1220]/95 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-md items-stretch justify-between gap-0.5 overflow-x-auto px-1 pb-[env(safe-area-inset-bottom)]">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === "/"
-              ? pathname === "/"
-              : pathname === href || pathname.startsWith(href + "/");
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={clsx(
-                "flex min-w-[3.2rem] flex-1 flex-col items-center gap-0.5 py-2 text-[9px] font-medium",
-                active ? "text-cyan-300" : "text-slate-400 hover:text-slate-200",
-              )}
-            >
-              <Icon className="h-4 w-4" strokeWidth={active ? 2.4 : 1.8} />
-              {label}
-            </Link>
-          );
-        })}
+    <nav className="fixed bottom-0 left-0 right-0 z-40">
+      <div className="mx-auto w-full max-w-[440px] border-t border-cream-300 bg-cream-100/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="grid grid-cols-4">
+          {items.map(({ href, label, icon: Icon }) => {
+            const active =
+              href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={clsx(
+                  "flex min-h-[64px] flex-col items-center justify-center gap-1 text-[12px] font-medium",
+                  active ? "text-ink" : "text-warm-500",
+                )}
+              >
+                <span
+                  className={clsx(
+                    "flex h-8 w-14 items-center justify-center rounded-full transition",
+                    active && "bg-ink text-cream-100",
+                  )}
+                >
+                  <Icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.2 : 1.8} />
+                </span>
+                {label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );

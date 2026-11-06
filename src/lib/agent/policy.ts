@@ -44,6 +44,14 @@ export interface WaitlistItem {
   updatedAt: string;
   /** Why the agent thinks it's ready */
   agentReason?: string;
+  /** Max budget the user set for the agent (USDC) */
+  maxBudgetUsdc?: number;
+  /** ISO date the agent should stop watching */
+  deadline?: string;
+  /** Source marketplace of the offer the agent is tracking */
+  marketplace?: string;
+  /** True when the source offer is synthetic demo data */
+  mocked?: boolean;
 }
 
 export const DEFAULT_POLICY: SpendPolicy = {

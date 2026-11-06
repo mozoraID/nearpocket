@@ -19,13 +19,21 @@ People hold stablecoins on NEAR but still pay warungs and online stores with loc
 
 ## Solution
 
-| Mode | What you do |
+Mobile-first app (cream + black, 390px column) with four tabs:
+
+| Tab | What you do |
 | --- | --- |
-| **Pay QR / Scan** | Paste or camera-scan EMVCo QR → detect rail → FX quote → settle via PJP adapter |
-| **Worldwide** | Any token via **NEAR Intents 1Click** → USDC on NEAR → mock virtual card / payment link |
-| **Shop** | Buyer catalog + merchant QR generator |
-| **Shopping plans** | Budget + deadline + item list → agent searches marketplaces → waitlist → approve/reject |
-| **Top up (beta)** | Demo USDC credit via QRIS/card/NEAR (mocked until partner creds) |
+| **Home** | Balance (USDC on NEAR + rupiah estimate), Scan & Pay / Top up / Belanja, agent approvals waiting for you, recent activity. Sign in with Meteor / HOT / Intear / NEAR Mobile, or *Try demo*. |
+| **Bayar** | Opens straight to the rear camera QR scanner (html5-qrcode). Fallbacks: upload a QR image, paste the QR text, or *Use sample QRIS*. Then: merchant card (name, city, rail flag, amount) → FX line → one **Pay** button → progress (Signed → NEAR Intents → Xendit QRIS → Paid) → receipt with partner ref + contract link. *Pay worldwide* (card/link) and *Receive as a merchant* (QR generator) are secondary options. |
+| **Belanja** | One search box across Tokopedia / Shopee / Lazada / eBay / Demo Mart (demo data) + DummyJSON (live API). Each item: **Buy now** or **Ask agent** (max budget + deadline → agent watches). Agent list with statuses and Approve / Reject. Spending-limits card linked to the testnet contract. |
+| **Aktivitas** | Timeline of payments, purchases, top ups and agent actions; tap a payment for its receipt. On-chain proof list of real testnet txs. |
+| **Top up (beta)** | Bottom sheet from Home (demo USDC credit; NEAR option shows a live 1Click quote). |
+
+A small **Demo · testnet** pill opens a *How it works* sheet with the real-vs-demo list.
+
+| Home | Bayar (scan) | Receipt | Belanja |
+| --- | --- | --- | --- |
+| ![Home](docs/screenshots/home.png) | ![Scan](docs/screenshots/pay-scan.png) | ![Receipt](docs/screenshots/receipt.png) | ![Belanja](docs/screenshots/belanja.png) |
 
 ## Architecture
 
@@ -74,7 +82,7 @@ NearPocket never sends crypto to merchants. Production: user USDC → licensed P
 
 | Piece | Status |
 | --- | --- |
-| EMVCo parser + CRC + camera scan | **Real** |
+| EMVCo parser + CRC + camera scan (+ image upload) | **Real** |
 | FX (Frankfurter) | **Real** when reachable |
 | Agent-policy contract on testnet | **Real** (see txs above) |
 | On-chain policy view in UI | **Real** via RPC |
@@ -129,14 +137,15 @@ Set `NEXT_PUBLIC_AGENT_POLICY_CONTRACT` to your account.
 
 ### Demo script (AI screener)
 
-1. `/` → Meteor Wallet / Demo.
-2. `/pay` → Indonesia sample → quote → Sign & pay → receipt.
-3. `/scan` → camera QR (mobile) or fall back to paste.
-4. `/plans` → create plan → Search marketplaces → Approve buy.
-5. `/api/contract` → see live on-chain policy + explorer links.
-6. `/api/quote?from=NEAR&amount=1` → real 1Click dry quote (or labeled fallback).
-7. `/topup` → demo credit balance.
-8. `/shop` → merchant QR.
+1. `/` → *Sign in* (Meteor / HOT / Intear / NEAR Mobile) or *Try demo*.
+2. `/pay` → camera opens (or tap **Use sample QRIS**) → merchant card + FX → **Pay** → progress → receipt (Xendit sandbox QR ref when `XENDIT_SECRET_KEY` is set).
+3. `/pay` → *Paste code* sheet → try 🇹🇭 PromptPay / 🇸🇬 NETS / 🇯🇵 JPQR samples.
+4. `/belanja` → search “Wireless earbuds” → **Ask agent** (budget + deadline) → **Approve** (policy-checked) or **Buy now**.
+5. `/aktivitas` → timeline + on-chain proof links.
+6. `/api/contract` → live on-chain policy + explorer links.
+7. `/api/quote?from=NEAR&amount=1` → real 1Click dry quote (or labeled fallback).
+
+Old routes `/scan`, `/shop`, `/plans`, `/agent`, `/topup` redirect to the new tabs.
 
 ```bash
 npm run test:qris

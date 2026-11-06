@@ -1,12 +1,26 @@
-import { BRAND } from "@/config/brand";
+"use client";
 
-export function DemoBanner() {
+import { useState } from "react";
+import { HowItWorksSheet } from "./HowItWorks";
+import { NEAR_CONFIG } from "@/lib/near/config";
+
+/** Small "Demo · testnet" pill that opens the How-it-works sheet. */
+export function DemoPill() {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
-      <strong className="font-semibold text-amber-50">Sandbox / demo.</strong>{" "}
-      Settlement uses mock PJP unless <code>XENDIT_SECRET_KEY</code> is set. Crypto is never
-      sent to merchants — in production a regulated partner converts USDC → local fiat, then
-      pays QRIS/card. Product name is configurable in <code>src/config/brand.ts</code> ({BRAND.displayName}).
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-full bg-cream-300 px-2.5 py-1 text-[11px] font-semibold text-warm-600"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-[#d08a1e]" />
+        Demo · {NEAR_CONFIG.networkId}
+      </button>
+      <HowItWorksSheet open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
+
+/** @deprecated kept for older imports */
+export const DemoBanner = DemoPill;

@@ -1,127 +1,150 @@
 "use client";
 
 import Link from "next/link";
-import { DemoBanner } from "@/components/DemoBanner";
-import { StatusBadge } from "@/components/StatusBadge";
-import { useNearlyStore } from "@/lib/store";
-import { formatUsdc } from "@/lib/fx/quote";
-import { QrCode, Globe, Store, ClipboardList, Sparkles, Shield } from "lucide-react";
-import { WalletButton } from "@/components/WalletButton";
-import { BRAND } from "@/config/brand";
+import { useEffect, useState } from "react";
+import { ScanLine, Plus, ShoppingBag, ChevronRight, Bot } from "lucide-react";
+import { TopBar } from "@/components/TopBar";
+import { TopUpSheet } from "@/components/TopUpSheet";
+import { ActivityRow } from "@/components/ActivityList";
+import { useNearPocketStore } from "@/lib/store";
+import { approveWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
 
 export default function HomePage() {
-  const balanceUsdc = useNearlyStore((s) => s.balanceUsdc);
-  const policy = useNearlyStore((s) => s.policy);
-  const receipts = useNearlyStore((s) => s.receipts);
-  const waitlist = useNearlyStore((s) => s.waitlist);
+  const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
+  const waitlist = useNearPocketStore((s) => s.waitlist);
+  const activity = useNearPocketStore((s) => s.activity);
+  const [idrRate, setIdrRate] = useState<number | null>(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (new URLSearchParams(window.location.search).get("topup")) setTopUpOpen(true);
+    fetch("/api/fx?currency=IDR&amount=10000")
+      .then((r) => r.json())
+      .then((q) => q?.rate && setIdrRate(q.rate))
+      .catch(() => null);
+  }, []);
+
+  const pending = waitlist.filter((w) => w.status === "awaiting_approval");
+  const bal = mounted ? balanceUsdc : 0;
+
+  async function approve(id: string) {
+    const item = waitlist.find((w) => w.id === id);
+    if (!item) return;
+    setBusyId(id);
+    setMsg(null);
+    try {
+      await approveWaitlistItem(item);
+      setMsg(`Bought ${item.title}.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Approve failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
-    <main className="space-y-4">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">
-            {BRAND.displayName}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">
-            {BRAND.tagline}
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            QRIS · world rails · shop · shopping plans
-          </p>
-        </div>
-        <WalletButton />
-      </header>
+    <main>
+      <TopBar />
 
-      <DemoBanner />
-
-      <section className="card relative overflow-hidden">
-        <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-cyan-400/20 blur-2xl" />
-        <p className="text-xs text-slate-400">Spendable balance</p>
-        <p className="mt-1 text-3xl font-bold tracking-tight">
-          {formatUsdc(balanceUsdc)}
-        </p>
-        <p className="mt-2 text-xs text-slate-400">
-          Settles via NEAR Intents → USDC → licensed PJP (mocked in demo).
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl bg-black/25 px-3 py-2">
-            <p className="text-[10px] text-slate-400">Daily agent limit</p>
-            <p className="text-sm font-semibold">
-              {policy.spentTodayUsdc.toFixed(2)} / {policy.dailyLimitUsdc} USDC
-            </p>
-          </div>
-          <div className="rounded-2xl bg-black/25 px-3 py-2">
-            <p className="text-[10px] text-slate-400">Per-item max</p>
-            <p className="text-sm font-semibold">{policy.perItemMaxUsdc} USDC</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 gap-3">
-        {[
-          { href: "/pay", label: "Scan QRIS", desc: "ID + ASEAN QR", icon: QrCode },
-          { href: "/pay?tab=world", label: "Worldwide", desc: "Card / link", icon: Globe },
-          { href: "/shop", label: "Shop & sell", desc: "Merchant mode", icon: Store },
-          { href: "/plans", label: "Shop plans", desc: "Multi-marketplace agent", icon: ClipboardList },
-        ].map(({ href, label, desc, icon: Icon }) => (
-          <Link key={href} href={href} className="card space-y-2 hover:bg-white/[0.07]">
-            <Icon className="h-5 w-5 text-cyan-300" />
-            <div>
-              <p className="text-sm font-semibold">{label}</p>
-              <p className="text-xs text-slate-400">{desc}</p>
-            </div>
-          </Link>
-        ))}
-      </section>
-
-      <section className="card space-y-3">
-        <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-violet-300" />
-          <h2 className="text-sm font-semibold">Why judges care</h2>
-        </div>
-        <ul className="space-y-2 text-xs text-slate-300">
-          <li className="flex gap-2">
-            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
-            Real EMVCo QR parser with per-country rails (QRIS, PromptPay, DuitNow, NETS, JPQR, KR).
-          </li>
-          <li className="flex gap-2">
-            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
-            Compliance-first: stablecoin → licensed PJP → fiat QR/card. Never crypto-to-merchant.
-          </li>
-          <li className="flex gap-2">
-            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
-            Shopping planner searches Tokopedia/Shopee/Lazada/Amazon… with on-chain spend policy.
-          </li>
-        </ul>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-200">Recent receipts</h2>
-        {receipts.length === 0 ? (
-          <p className="card text-xs text-slate-400">
-            No payments yet — try Pay QR with a sample payload.
-          </p>
-        ) : (
-          receipts.slice(0, 4).map((r) => (
-            <div key={r.merchantReceiptId} className="card flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">{r.request.merchantName}</p>
-                <p className="text-xs text-slate-400">
-                  {r.request.localAmount} {r.request.localCurrency} ·{" "}
-                  {formatUsdc(r.request.quote.totalUsdc)}
-                </p>
+      {mounted && pending.length > 0 && (
+        <section className="mb-4 space-y-2">
+          {pending.slice(0, 2).map((w) => (
+            <div key={w.id} className="rounded-3xl bg-ink p-4 text-cream-100">
+              <div className="flex items-center gap-2 text-xs text-cream-400">
+                <Bot className="h-4 w-4" /> Agent needs your OK
               </div>
-              <StatusBadge status={r.status} />
+              <p className="mt-1 font-semibold">{w.title}</p>
+              <p className="text-sm text-cream-400">
+                {w.currentPriceUsdc.toFixed(2)} USDC · {w.marketplace || w.merchant}
+                {w.maxBudgetUsdc ? ` · budget ${w.maxBudgetUsdc}` : ""}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="h-11 rounded-full bg-cream-100 font-semibold text-ink disabled:opacity-40"
+                  disabled={busyId === w.id}
+                  onClick={() => approve(w.id)}
+                >
+                  {busyId === w.id ? "Paying…" : "Approve"}
+                </button>
+                <button
+                  type="button"
+                  className="h-11 rounded-full border border-cream-400/40 font-semibold"
+                  onClick={() => rejectWaitlistItem(w)}
+                >
+                  Reject
+                </button>
+              </div>
             </div>
-          ))
+          ))}
+          {msg && <p className="px-1 text-sm text-warm-600">{msg}</p>}
+        </section>
+      )}
+
+      <section className="rounded-[28px] bg-cream-100 p-6 ring-1 ring-cream-300">
+        <p className="text-sm text-warm-600">Balance · USDC on NEAR</p>
+        <p className="mt-1 text-[40px] font-bold leading-none tracking-tight">
+          {bal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <span className="ml-2 text-lg font-semibold text-warm-500">USDC</span>
+        </p>
+        <p className="mt-2 text-sm text-warm-600">
+          {idrRate
+            ? `≈ Rp ${Math.round(bal * idrRate).toLocaleString("id-ID")}`
+            : "≈ Rp …"}
+        </p>
+      </section>
+
+      <section className="mt-4 grid grid-cols-3 gap-3">
+        <Link href="/pay" className="flex flex-col items-center gap-2 rounded-3xl bg-ink px-2 py-4 text-cream-100">
+          <ScanLine className="h-6 w-6" />
+          <span className="text-sm font-semibold">Scan & Pay</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setTopUpOpen(true)}
+          className="flex flex-col items-center gap-2 rounded-3xl bg-cream-100 px-2 py-4 ring-1 ring-cream-300"
+        >
+          <Plus className="h-6 w-6" />
+          <span className="text-sm font-semibold">Top up</span>
+        </button>
+        <Link
+          href="/belanja"
+          className="flex flex-col items-center gap-2 rounded-3xl bg-cream-100 px-2 py-4 ring-1 ring-cream-300"
+        >
+          <ShoppingBag className="h-6 w-6" />
+          <span className="text-sm font-semibold">Belanja</span>
+        </Link>
+      </section>
+
+      <section className="mt-7">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Recent activity</h2>
+          <Link href="/aktivitas" className="flex items-center text-sm text-warm-600">
+            See all <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+        {!mounted || activity.length === 0 ? (
+          <div className="card text-center">
+            <p className="font-medium">No activity yet</p>
+            <p className="mt-1 text-sm text-warm-600">Scan a QR to make your first payment.</p>
+            <Link href="/pay" className="btn-outline mt-4">
+              Try a sample QRIS
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y divide-cream-300 rounded-3xl bg-cream-100 px-4 ring-1 ring-cream-300">
+            {activity.slice(0, 5).map((a) => (
+              <ActivityRow key={a.id} a={a} />
+            ))}
+          </div>
         )}
       </section>
 
-      {waitlist.some((w) => w.status === "awaiting_approval") && (
-        <Link href="/agent" className="btn-primary w-full">
-          Agent needs your approval ({waitlist.filter((w) => w.status === "awaiting_approval").length})
-        </Link>
-      )}
+      <TopUpSheet open={topUpOpen} onClose={() => setTopUpOpen(false)} />
     </main>
   );
 }

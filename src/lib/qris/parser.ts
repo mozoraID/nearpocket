@@ -83,7 +83,8 @@ function detectRail(tags: EmvTag[], currency?: string, country?: string): Paymen
 }
 
 export function parseEmvQr(raw: string): ParsedQrPayment {
-  const cleaned = raw.trim().replace(/\s+/g, "");
+  // Only strip line breaks: merchant names legitimately contain spaces (tag lengths count them).
+  const cleaned = raw.trim().replace(/[\r\n\t]+/g, "");
   const tags = parseTlv(cleaned);
 
   const currencyTag = findTag(tags, "53");
