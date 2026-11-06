@@ -1,35 +1,13 @@
 "use client";
 
-import { BottomNav } from "./BottomNav";
-import { LanguageProvider } from "@/lib/i18n";
-import { PrivyClientProvider } from "./PrivyClientProvider";
-import { useNearPocketStore } from "@/lib/store";
-import { useEffect } from "react";
+import { Providers } from "./Providers";
+import { WalletShell } from "./WalletShell";
 
-function ShellInner({ children }: { children: React.ReactNode }) {
-  const connectDemo = useNearPocketStore((s) => s.connectDemo);
-  const accountId = useNearPocketStore((s) => s.accountId);
-
-  useEffect(() => {
-    if (!accountId) connectDemo();
-  }, [accountId, connectDemo]);
-
-  return (
-    <div className="min-h-dvh bg-cream-300/60 text-ink">
-      <div className="relative mx-auto min-h-dvh w-full max-w-[440px] bg-cream-200 px-5 pb-28 pt-4 shadow-[0_0_0_1px_#ece4d6] sm:shadow-[0_0_60px_rgba(17,17,17,0.06)]">
-        {children}
-      </div>
-      <BottomNav />
-    </div>
-  );
-}
-
+/** @deprecated Prefer Providers + WalletShell. Kept for compatibility. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <PrivyClientProvider>
-      <LanguageProvider>
-        <ShellInner>{children}</ShellInner>
-      </LanguageProvider>
-    </PrivyClientProvider>
+    <Providers>
+      <WalletShell>{children}</WalletShell>
+    </Providers>
   );
 }

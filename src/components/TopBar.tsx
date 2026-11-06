@@ -12,7 +12,7 @@ export function TopBar({ title }: { title?: string }) {
     <header className="mb-5 flex items-center justify-between gap-2">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <Link href="/" className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink text-sm font-bold text-cream-100">
+          <Link href="/app" className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink text-sm font-bold text-cream-100">
             N
           </Link>
           <span className="truncate text-lg font-semibold tracking-tight">{title || BRAND.displayName}</span>

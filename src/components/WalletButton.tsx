@@ -18,6 +18,7 @@ import { useT } from "@/lib/i18n";
 import { Sheet } from "./Sheet";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 import { PRIVY_APP_ID } from "./PrivyClientProvider";
+import { registerAuthOpener } from "@/lib/auth-bridge";
 import {
   clearLocalWallet,
   generateLocalWallet,
@@ -68,6 +69,13 @@ export function WalletButton() {
     return [...needed, ...decoys].sort(() => Math.random() - 0.5);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [words.join(" "), confirmIdx.join(",")]);
+
+  useEffect(() => {
+    return registerAuthOpener(() => {
+      setStage(signedIn ? "account" : "menu");
+      setOpen(true);
+    });
+  }, [signedIn]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
