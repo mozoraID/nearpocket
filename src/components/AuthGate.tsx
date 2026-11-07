@@ -1,21 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useNearPocketStore } from "@/lib/store";
-import { BRAND } from "@/config/brand";
-
-function Splash({ detail }: { detail: string }) {
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-cream-200 text-ink">
-      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-sm font-bold text-cream-100">
-        NP
-      </span>
-      <p className="text-sm font-medium">{BRAND.displayName}</p>
-      <p className="text-xs text-warm-500">{detail}</p>
-    </div>
-  );
-}
+import { BrandSplash } from "./BrandSplash";
 
 function isSigningOutNow(): boolean {
   try {
@@ -41,7 +29,6 @@ function isSigningOutNow(): boolean {
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const accountId = useNearPocketStore((s) => s.accountId);
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -65,13 +52,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     if (accountId) return;
     if (signingOut) return;
-    const qs = searchParams?.toString();
+    const qs = window.location.search.replace(/^\?/, "");
     const next = pathname + (qs ? `?${qs}` : "");
     router.replace(`/login?next=${encodeURIComponent(next || "/home")}`);
-  }, [ready, accountId, pathname, searchParams, router, signingOut]);
+  }, [ready, accountId, pathname, router, signingOut]);
 
-  if (!ready) return <Splash detail="Loading wallet…" />;
-  if (!accountId && signingOut) return <Splash detail="Signing out…" />;
-  if (!accountId) return <Splash detail="Redirecting to sign in…" />;
+  if (!ready) return <BrandSplash detail="Loading wallet…" />;
+  if (!accountId && signingOut) return <BrandSplash detail="Signing out…" />;
+  if (!accountId) return <BrandSplash detail="Redirecting to sign in…" />;
   return <>{children}</>;
 }

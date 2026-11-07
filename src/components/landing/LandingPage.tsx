@@ -128,10 +128,13 @@ export function LandingPage() {
               {t("landing.navFaq")}
             </a>
           </nav>
-          <div className="flex min-h-10 items-center gap-2">
+          <div className="flex min-h-10 items-center gap-2" aria-busy={authLoading}>
             <LanguageSwitcher compact />
             {authLoading ? (
-              <span className="h-10 w-10 animate-pulse rounded-full bg-cream-300/80" aria-hidden />
+              <span
+                className="h-10 w-[5.75rem] animate-pulse rounded-full bg-cream-300/80"
+                aria-hidden
+              />
             ) : hasSession ? (
               <a
                 href="/home"
@@ -144,7 +147,7 @@ export function LandingPage() {
             ) : (
               <Link
                 href={loginHref}
-                className="flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
+                className="flex h-10 min-w-[5.75rem] items-center justify-center rounded-full bg-ink px-4 text-sm font-semibold text-cream-100"
               >
                 {t("landing.ctaNavSignIn")}
               </Link>

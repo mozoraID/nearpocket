@@ -24,7 +24,23 @@ export function useAuthSession(): {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const finish = () => setReady(true);
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      // Sign-out sets this flag before the persisted account is guaranteed gone.
+      // Drop a stale account before the CTA leaves the placeholder, so the
+      // header cannot paint "Open app" and then flip to "Sign in".
+      try {
+        const suppress =
+          sessionStorage.getItem("nearpocket-suppress-restore") === "1" ||
+          sessionStorage.getItem("nearpocket-signing-out") === "1";
+        if (suppress && useNearPocketStore.getState().accountId) {
+          useNearPocketStore.getState().disconnect();
+        }
+      } catch { /* */ }
+      setReady(true);
+    };
     const unsub = useNearPocketStore.persist.onFinishHydration(finish);
     if (useNearPocketStore.persist.hasHydrated()) finish();
     // Safety: never leave UI stuck loading if persist hangs
