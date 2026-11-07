@@ -3,12 +3,12 @@
 **Your NEAR pocket for real-world money**
 
 [![Live demo](https://img.shields.io/badge/demo-nearpocket.vercel.app-111111)](https://nearpocket.vercel.app)
-[![NEAR Hackathon](https://img.shields.io/badge/NEAR%20Hackathon-realworld%20%2B%20agents-00C08B)](https://near.org)
+[![NEAR Hackathon](https://img.shields.io/badge/NEAR%20Hackathon-Real--World%20Money%20%2B%20Agent%20Economy-00C08B)](https://nearhackathon.com)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Live:** https://nearpocket.vercel.app  
 **Repo:** https://github.com/mozoraID/nearpocket  
-**Tracks:** `realworld` · `agents`
+**Tracks:** Real-World Money · Agent Economy
 
 NearPocket is a **NEAR-native** mobile wallet that feels like a normal payments app:
 
