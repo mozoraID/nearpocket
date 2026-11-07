@@ -3,16 +3,13 @@
 import { Suspense } from "react";
 import { BottomNav } from "./BottomNav";
 import { AuthGate } from "./AuthGate";
+import { BrandSplash } from "./BrandSplash";
 
 /** Chrome for the in-app wallet (tabs). Used under /app and legacy deep links. */
 export function WalletShell({ children }: { children: React.ReactNode }) {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-dvh items-center justify-center bg-cream-200 text-sm text-warm-600">
-          Loading…
-        </div>
-      }
+      fallback={<BrandSplash detail="Loading wallet…" />}
     >
       <AuthGate>
         <div className="min-h-dvh bg-cream-300/60 text-ink">
