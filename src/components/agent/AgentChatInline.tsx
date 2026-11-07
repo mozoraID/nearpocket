@@ -167,8 +167,8 @@ export function AgentChatInline() {
       addWaitlist(item);
       logActivity({
         kind: "agent",
-        title: `Agent watching: ${item.title}`,
-        detail: `Budget ${item.maxBudgetUsdc} USDC · until ${item.deadline}`,
+        title: t("shop.watchingTitle", { title: item.title }),
+        detail: t("shop.watchingDetail", { budget: item.maxBudgetUsdc ?? "", deadline: item.deadline ?? "" }),
         status: item.status,
       });
 
@@ -177,7 +177,7 @@ export function AgentChatInline() {
           ? `${t("agent.needApprove")} ${t("agent.foundReply", {
               title: item.title,
               price: item.currentPriceUsdc.toFixed(2),
-              marketplace: item.marketplace || "marketplace",
+              marketplace: item.marketplace || t("agent.marketplace"),
             })}`
           : `${t("agent.created")} ${t("agent.watchingReply", {
               title: item.title,
