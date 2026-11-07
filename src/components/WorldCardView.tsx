@@ -47,14 +47,14 @@ export function WorldCardView({
     const n = parseFloat(topUpAmt);
     if (!n || n <= 0) return;
     if (n > balanceUsdc) {
-      setError("Not enough USDC in wallet.");
+      setError(t("card.walletShort"));
       return;
     }
     topUpCard(n);
     logActivity({
       kind: "card",
-      title: "Card top-up",
-      detail: `${n.toFixed(2)} USDC via NEAR Intents (demo)`,
+      title: t("card.topUpActivity"),
+      detail: t("card.topUpDetail", { amount: n.toFixed(2) }),
       amountUsdc: n,
       direction: "out",
       status: "ok",
@@ -90,11 +90,11 @@ export function WorldCardView({
           </p>
           <div className="mt-6 flex items-end justify-between">
             <div>
-              <p className="text-[10px] uppercase text-cream-400">Cardholder</p>
+              <p className="text-[10px] uppercase text-cream-400">{t("card.cardholder")}</p>
               <p className="text-sm font-semibold">{card.holder}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] uppercase text-cream-400">Exp</p>
+              <p className="text-[10px] uppercase text-cream-400">{t("card.exp")}</p>
               <p className="text-sm font-semibold">
                 {String(card.expMonth).padStart(2, "0")}/{card.expYear}
               </p>
@@ -102,7 +102,7 @@ export function WorldCardView({
           </div>
           {card.frozen && (
             <p className="mt-4 flex items-center gap-1 text-sm text-[#f4dcd6]">
-              <Snowflake className="h-4 w-4" /> Frozen
+              <Snowflake className="h-4 w-4" /> {t("card.frozenNow")}
             </p>
           )}
         </div>
@@ -145,11 +145,11 @@ export function WorldCardView({
               if (n > 0) setCard({ limitUsdc: n });
             }}
           >
-            Set
+            {t("card.set")}
           </button>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-warm-600">Card balance</span>
+          <span className="text-warm-600">{t("card.balance")}</span>
           <span className="font-semibold">{formatUsdc(card.balanceUsdc)}</span>
         </div>
         <div className="flex gap-2">
@@ -184,8 +184,8 @@ export function WorldCardView({
         {PayWithToggle}
         {payWith === "NEAR" && nearPerUsdc && parseFloat(wAmount) > 0 && (
           <p className="text-sm text-warm-600">
-            ≈ {(parseFloat(wAmount) / nearPerUsdc.usdcPerNear).toFixed(3)} NEAR via NEAR Intents
-            {nearPerUsdc.real ? " · live 1Click quote" : " · estimate"}
+            {t("card.nearLine", { amount: (parseFloat(wAmount) / nearPerUsdc.usdcPerNear).toFixed(3) })}
+            {nearPerUsdc.real ? ` · ${t("card.liveQuote")}` : ` · ${t("card.estimate")}`}
           </p>
         )}
       </div>
@@ -202,13 +202,13 @@ export function WorldCardView({
         onClick={() => {
           const amt = parseFloat(wAmount);
           if (amt > card.limitUsdc) {
-            setError(`Amount exceeds card limit (${formatUsdc(card.limitUsdc)}).`);
+            setError(t("card.overLimit", { limit: formatUsdc(card.limitUsdc) }));
             return;
           }
           payWorld();
         }}
       >
-        Pay ${parseFloat(wAmount) > 0 ? parseFloat(wAmount).toFixed(2) : "0.00"}
+        {t("card.payUsd", { amount: parseFloat(wAmount) > 0 ? parseFloat(wAmount).toFixed(2) : "0.00" })}
       </button>
       <p className="text-center text-xs text-warm-500">{t("card.demoNote")}</p>
 

@@ -8,9 +8,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { Dict, Locale } from "./types";
+import type { Locale } from "./types";
 import { LOCALES } from "./types";
-import { en } from "./en";
+import { en, type Dict, type TranslationKey } from "./en";
+import "./completeness";
 import { id } from "./id";
 import { th } from "./th";
 import { ms } from "./ms";
@@ -36,6 +37,11 @@ function detectLocale(): Locale {
   if (map[raw]) return map[raw];
   const base = raw.split("-")[0];
   return map[base] || "en";
+}
+
+function lookup(dict: Dict, key: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(dict, key)) return undefined;
+  return dict[key as TranslationKey];
 }
 
 function format(template: string, vars?: Record<string, string | number>) {
@@ -86,7 +92,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
       const dict = DICTS[locale] || en;
-      const raw = dict[key] ?? en[key] ?? key;
+      const raw = lookup(dict, key) ?? lookup(en, key) ?? key;
       return format(raw, vars);
     },
     [locale],

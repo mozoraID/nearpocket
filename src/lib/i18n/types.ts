@@ -10,4 +10,4 @@ export const LOCALES: { id: Locale; label: string; native: string; flag: string 
   { id: "zh", label: "Chinese", native: "中文", flag: "🇨🇳" },
 ];
 
-export type Dict = Record<string, string>;
+export type { Dict, TranslationKey } from "./en";

@@ -37,7 +37,7 @@ import { trySetPolicyOnChain } from "@/lib/near/set-policy";
 import { useT } from "@/lib/i18n";
 import { AgentChatInline } from "@/components/agent/AgentChatInline";
 
-const SUGGESTIONS = ["Wireless earbuds", "Kopi arabica", "Hoodie", "Mechanical keyboard"];
+const SUGGESTION_KEYS = ["shop.suggest1", "shop.suggest2", "shop.suggest3", "shop.suggest4"] as const;
 
 function categoryFor(q: string) {
   const l = q.toLowerCase();
@@ -100,7 +100,7 @@ export default function ShopPage() {
     const term = q.trim();
     if (!term) return;
     if (!connected.length) {
-      setMsg("Connect at least one marketplace first.");
+      setMsg(t("shop.connectFirst"));
       setConnectOpen(true);
       return;
     }
@@ -140,7 +140,7 @@ export default function ShopPage() {
     const item: WaitlistItem = {
       id: `wl_${Date.now().toString(36)}`,
       title: askFor.offer ? askFor.offer.title.split(" · ")[0] : askFor.title,
-      merchant: best ? `${mLabel} · ${best.merchant}` : "Any marketplace",
+      merchant: best ? `${mLabel} · ${best.merchant}` : t("agent.anyMarketplace"),
       category: categoryFor(askFor.title),
       targetPriceUsdc: max,
       currentPriceUsdc: current,
@@ -153,18 +153,18 @@ export default function ShopPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       agentReason: within
-        ? `Found at ${current.toFixed(2)} USDC, within your ${max} USDC budget. Waiting for your OK.`
-        : `Cheapest now ${current.toFixed(2)} USDC. Watching until it's ≤ ${max} USDC.`,
+        ? t("shop.reasonWithin", { price: current.toFixed(2), budget: max })
+        : t("shop.reasonWatch", { price: current.toFixed(2), budget: max }),
     };
     addWaitlist(item);
     logActivity({
       kind: "agent",
-      title: `Agent watching: ${item.title}`,
-      detail: `Budget ${max} USDC · until ${deadline}`,
+      title: t("shop.watchingTitle", { title: item.title }),
+      detail: t("shop.watchingDetail", { budget: max, deadline }),
       status: item.status,
     });
     setAskFor(null);
-    setMsg(within ? "Agent found it within budget. Approve below." : "Agent is watching. It can't buy without you.");
+    setMsg(within ? t("shop.foundMsg") : t("shop.watchingMsg"));
     setTimeout(() => document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
@@ -172,7 +172,7 @@ export default function ShopPage() {
     if (!buyOffer) return;
     setBusy("buy");
     try {
-      if (buyOffer.priceUsdc > balanceUsdc) throw new Error("Not enough USDC. Top up first.");
+      if (buyOffer.priceUsdc > balanceUsdc) throw new Error(t("shop.notEnough"));
       const fx = (await (await fetch(`/api/fx?currency=USD&amount=${buyOffer.priceUsdc}`)).json()) as FxQuote;
       const mLabel = metaFor(buyOffer.marketplace)?.label || buyOffer.marketplace;
       const req = buildCardSettlement({
@@ -190,7 +190,7 @@ export default function ShopPage() {
       });
       setBuyReceipt(r);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Buy failed");
+      setMsg(e instanceof Error ? e.message : t("shop.buyFailed"));
       setBuyOffer(null);
     } finally {
       setBusy(null);
@@ -203,7 +203,7 @@ export default function ShopPage() {
     try {
       await fn();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Something went wrong");
+      setMsg(e instanceof Error ? e.message : t("shop.errorGeneric"));
     } finally {
       setBusy(null);
     }
@@ -214,8 +214,8 @@ export default function ShopPage() {
     const result = await trySetPolicyOnChain(policy, { demoMode, accountId });
     setPolicyMsg(
       result.mode === "on-chain"
-        ? "Saved on-chain via your wallet."
-        : result.detail || "Saved locally (demo).",
+        ? t("shop.savedOnChain")
+        : result.detail || t("shop.savedLocal"),
     );
     setLimitsOpen(false);
   }
@@ -241,7 +241,7 @@ export default function ShopPage() {
         <span className="flex-1">
           <span className="block font-semibold">{t("shop.connectTitle")}</span>
           <span className="text-xs text-warm-600">
-            {connected.length} connected · {t("shop.connectHint").slice(0, 48)}…
+            {t("shop.connectedCount", { count: connected.length })} · {t("shop.connectHint").slice(0, 48)}…
           </span>
         </span>
         <div className="flex -space-x-1">
@@ -277,9 +277,9 @@ export default function ShopPage() {
 
       {!offers && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((s) => (
-            <button key={s} type="button" onClick={() => search(s)} className="h-10 rounded-full bg-cream-100 px-4 text-sm ring-1 ring-cream-300">
-              {s}
+          {SUGGESTION_KEYS.map((key) => (
+            <button key={key} type="button" onClick={() => search(t(key))} className="h-10 rounded-full bg-cream-100 px-4 text-sm ring-1 ring-cream-300">
+              {t(key)}
             </button>
           ))}
         </div>
@@ -366,7 +366,7 @@ export default function ShopPage() {
           </div>
           {offers.length > 5 && !showAll && (
             <button type="button" className="btn-secondary mt-3 w-full" onClick={() => setShowAll(true)}>
-              Show all {offers.length} results
+              {t("shop.showAll", { count: offers.length })}
             </button>
           )}
         </section>
@@ -387,15 +387,15 @@ export default function ShopPage() {
                     <p className="font-semibold">{w.title}</p>
                     <p className="text-xs text-warm-600">
                       {w.marketplace || w.merchant}
-                      {w.mocked ? " · demo" : ""}
-                      {w.deadline ? ` · until ${w.deadline}` : ""}
+                      {w.mocked ? ` · ${t("common.demo")}` : ""}
+                      {w.deadline ? ` · ${t("shop.until", { date: w.deadline })}` : ""}
                     </p>
                   </div>
                   <StatusBadge status={w.status} />
                 </div>
                 <div className="mt-3 flex items-center justify-between rounded-2xl bg-cream-200 px-3 py-2 text-sm">
-                  <span>Now <b>{w.currentPriceUsdc.toFixed(2)}</b> USDC</span>
-                  <span className="text-warm-600">Budget {(w.maxBudgetUsdc ?? w.targetPriceUsdc).toFixed(2)}</span>
+                  <span>{t("shop.nowPrice", { price: w.currentPriceUsdc.toFixed(2) })}</span>
+                  <span className="text-warm-600">{t("shop.budgetAmount", { amount: (w.maxBudgetUsdc ?? w.targetPriceUsdc).toFixed(2) })}</span>
                 </div>
                 {w.agentReason && <p className="mt-2 text-xs text-warm-600">{w.agentReason}</p>}
                 <div className="mt-3 flex gap-2">
@@ -420,14 +420,14 @@ export default function ShopPage() {
                       disabled={busy === w.id}
                       onClick={() => act(w.id, () => recheckWaitlistItem(w))}
                     >
-                      {busy === w.id ? "…" : "Check price now"}
+                      {busy === w.id ? "…" : t("shop.checkPrice")}
                     </button>
                   ) : (
                     <span className="flex-1" />
                   )}
                   <button
                     type="button"
-                    aria-label="Remove"
+                    aria-label={t("shop.remove")}
                     className="flex h-11 w-11 items-center justify-center rounded-full bg-cream-200"
                     onClick={() => removeWaitlist(w.id)}
                   >
@@ -478,7 +478,7 @@ export default function ShopPage() {
             className="mt-4 flex items-center justify-between rounded-2xl bg-cream-200 px-3 py-3 text-sm"
           >
             <span>
-              <span className="block text-xs text-warm-600">Enforced on NEAR {NEAR_CONFIG.networkId}{chain?.policy ? " · read live" : ""}</span>
+              <span className="block text-xs text-warm-600">{t("shop.enforced", { network: NEAR_CONFIG.networkId })}{chain?.policy ? ` · ${t("shop.readLive")}` : ""}</span>
               <span className="font-medium">{chain?.contractId || NEAR_CONFIG.agentPolicyContract}</span>
             </span>
             <ExternalLink className="h-4 w-4" />
@@ -515,7 +515,7 @@ export default function ShopPage() {
               <p className="mt-3 text-3xl font-bold">{buyOffer.priceUsdc.toFixed(2)} <span className="text-base text-warm-500">USDC</span></p>
             </div>
             <button type="button" className="btn-primary w-full" disabled={busy === "buy"} onClick={confirmBuy}>
-              {busy === "buy" ? t("home.paying") : `Pay ${buyOffer.priceUsdc.toFixed(2)} USDC`}
+              {busy === "buy" ? t("home.paying") : t("shop.payUsdc", { amount: buyOffer.priceUsdc.toFixed(2) })}
             </button>
           </div>
         )}
@@ -543,7 +543,7 @@ export default function ShopPage() {
             <p className="text-lg font-semibold">{overview.title}</p>
             <p className="text-2xl font-bold">{overview.priceUsdc.toFixed(2)} USDC</p>
             {overview.rating && <p className="text-sm text-warm-600">★ {overview.rating.toFixed(1)} · {overview.merchant}</p>}
-            <p className="text-sm text-warm-600">{overview.description || "Demo / partner listing overview."}</p>
+            <p className="text-sm text-warm-600">{overview.description || t("shop.demoOverview")}</p>
             <a
               href={overview.productUrl || overview.url}
               target="_blank"
@@ -571,7 +571,7 @@ export default function ShopPage() {
             <input type="checkbox" className="h-5 w-5 accent-[#111]" checked={policy.paused} onChange={(e) => setPolicy({ paused: e.target.checked })} />
           </label>
           <p className="text-xs text-warm-600">
-            With a real wallet connected, Save signs <code>set_policy</code> on {NEAR_CONFIG.agentPolicyContract}. Demo mode stays local.
+            {t("shop.policyHint", { contract: NEAR_CONFIG.agentPolicyContract })}
           </p>
           <button type="button" className="btn-primary w-full" onClick={savePolicy}>
             {t("common.save")}

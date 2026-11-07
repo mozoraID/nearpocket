@@ -10,23 +10,25 @@ import { ReceiptView } from "@/components/ReceiptView";
 import { useNearPocketStore, type ActivityEntry } from "@/lib/store";
 import deployed from "@/config/deployed.json";
 import { explorerTxUrl } from "@/lib/near/config";
+import { useT } from "@/lib/i18n";
 
 const FILTERS = [
-  { id: "all", label: "All" },
-  { id: "money", label: "Payments" },
-  { id: "agent", label: "Agent" },
+  { id: "all", key: "activity.all" },
+  { id: "money", key: "activity.payments" },
+  { id: "agent", key: "activity.agent" },
 ] as const;
 
-const TX_LABEL: Record<string, string> = {
-  deploy: "Contract deployed",
-  set_policy: "Spending limits set",
-  queue_item: "Item added to waitlist",
-  request_spend: "Agent asked to spend",
-  approve_spend: "Owner approved spend",
-  upsert_plan: "Shopping plan saved",
+const TX_KEYS: Record<string, string> = {
+  deploy: "activity.txDeploy",
+  set_policy: "activity.txPolicy",
+  queue_item: "activity.txQueue",
+  request_spend: "activity.txRequest",
+  approve_spend: "activity.txApprove",
+  upsert_plan: "activity.txPlan",
 };
 
 export default function ActivityPage() {
+  const t = useT();
   const activity = useNearPocketStore((s) => s.activity);
   const receipts = useNearPocketStore((s) => s.receipts);
   const [mounted, setMounted] = useState(false);
@@ -60,7 +62,7 @@ export default function ActivityPage() {
 
   return (
     <main>
-      <TopBar title="Activity" />
+      <TopBar title={t("nav.activity")} />
 
       <div className="mb-4 flex gap-2">
         {FILTERS.map((f) => (
@@ -73,13 +75,13 @@ export default function ActivityPage() {
               filter === f.id ? "bg-ink text-cream-100" : "bg-cream-100 ring-1 ring-cream-300",
             )}
           >
-            {f.label}
+            {t(f.key)}
           </button>
         ))}
       </div>
 
       {shown.length === 0 ? (
-        <div className="card text-center text-sm text-warm-600">No activity yet.</div>
+        <div className="card text-center text-sm text-warm-600">{t("activity.empty")}</div>
       ) : (
         <div className="divide-y divide-cream-300 rounded-3xl bg-cream-100 px-4 ring-1 ring-cream-300">
           {shown.map((a) => (
@@ -93,8 +95,8 @@ export default function ActivityPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-base font-semibold">On-chain proof (NEAR {deployed.network})</h2>
-        <p className="mb-3 text-sm text-warm-600">Real transactions on the spending-policy contract.</p>
+        <h2 className="text-base font-semibold">{t("activity.onChain", { network: deployed.network })}</h2>
+        <p className="mb-3 text-sm text-warm-600">{t("activity.onChainHint")}</p>
         <div className="divide-y divide-cream-300 rounded-3xl bg-cream-100 px-4 ring-1 ring-cream-300">
           {Object.entries(deployed.sampleTxs).map(([k, hash]) => (
             <a
@@ -105,7 +107,7 @@ export default function ActivityPage() {
               className="flex items-center justify-between gap-3 py-3"
             >
               <span className="min-w-0">
-                <span className="block font-medium">{TX_LABEL[k] || k}</span>
+                <span className="block font-medium">{TX_KEYS[k] ? t(TX_KEYS[k]) : k}</span>
                 <span className="block truncate font-mono text-xs text-warm-600">{k} · {hash.slice(0, 14)}…</span>
               </span>
               <ExternalLink className="h-4 w-4 shrink-0" />
@@ -114,7 +116,7 @@ export default function ActivityPage() {
         </div>
       </section>
 
-      <Sheet open={!!openReceipt} onClose={() => setOpenId(null)} title="Receipt">
+      <Sheet open={!!openReceipt} onClose={() => setOpenId(null)} title={t("activity.receipt")}>
         {openReceipt && <ReceiptView receipt={openReceipt} />}
       </Sheet>
     </main>

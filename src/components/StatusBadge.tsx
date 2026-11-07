@@ -1,4 +1,7 @@
+"use client";
+
 import clsx from "clsx";
+import { useT } from "@/lib/i18n";
 
 const tones: Record<string, string> = {
   paid: "bg-[#e3eedb] text-[#2f5a1f]",
@@ -17,12 +20,26 @@ const tones: Record<string, string> = {
   expired: "bg-cream-300 text-warm-600",
 };
 
-const labels: Record<string, string> = {
-  awaiting_approval: "Needs you",
-  mocked: "Demo",
+const STATUS_KEYS: Record<string, string> = {
+  awaiting_approval: "status.needsYou",
+  mocked: "status.demo",
+  watching: "status.watching",
+  searching: "status.searching",
+  queued: "status.queued",
+  rejected: "status.rejected",
+  failed: "status.failed",
+  expired: "status.expired",
+  paid: "status.paid",
+  purchased: "status.purchased",
+  approved: "status.approved",
+  completed: "status.completed",
+  active: "status.active",
+  ready: "status.ready",
 };
 
 export function StatusBadge({ status }: { status: string }) {
+  const t = useT();
+  const key = STATUS_KEYS[status];
   return (
     <span
       className={clsx(
@@ -30,7 +47,7 @@ export function StatusBadge({ status }: { status: string }) {
         tones[status] || "bg-cream-300 text-warm-600",
       )}
     >
-      {labels[status] || status.replace(/_/g, " ")}
+      {key ? t(key) : status.replace(/_/g, " ")}
     </span>
   );
 }

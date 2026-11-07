@@ -18,6 +18,7 @@ import { buildCardSettlement, buildQrisSettlement, type SettlementReceipt, type 
 import { useNearPocketStore } from "@/lib/store";
 import { settleAndRecord, COUNTRY_FLAG } from "@/lib/client/pay";
 import { WorldCardView } from "@/components/WorldCardView";
+import { useT } from "@/lib/i18n";
 
 type Stage = "scan" | "confirm" | "world" | "paying" | "done";
 type PayWith = "USDC" | "NEAR";
@@ -34,6 +35,7 @@ const SAMPLE_LABEL: Record<SampleKey, string> = {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function PayInner() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
@@ -84,7 +86,7 @@ function PayInner() {
       setQuote(null);
       setStage("confirm");
     } catch {
-      setError("That QR isn't a payment QR. Try another one.");
+      setError(t("pay.badQr"));
       setStage("scan");
     }
   }
@@ -100,30 +102,30 @@ function PayInner() {
       setQuote(null);
       return;
     }
-    const t = setTimeout(() => {
+    const rateTimer = setTimeout(() => {
       fetch(`/api/fx?currency=${encodeURIComponent(parsed.rail.currency)}&amount=${localAmount}`)
         .then((r) => r.json())
         .then((q) => q?.totalUsdc && setQuote(q))
-        .catch(() => setError("Couldn't get a rate. Check your connection."));
+        .catch(() => setError(t("pay.rateError")));
     }, 250);
-    return () => clearTimeout(t);
-  }, [stage, parsed, localAmount]);
+    return () => clearTimeout(rateTimer);
+  }, [stage, parsed, localAmount, t]);
 
-  const partnerLabel = backend === "xendit-sandbox" ? "Xendit QRIS (sandbox)" : "Partner payout (demo)";
+  const partnerLabel = backend === "xendit-sandbox" ? t("pay.partnerXendit") : t("pay.partnerPayout");
 
   const steps = useMemo(() => {
     const isCard = pendingReq?.mode === "card";
     return [
-      "Signed in your wallet",
-      payWith === "NEAR" ? "Converting NEAR → USDC via NEAR Intents" : "Routing USDC via NEAR Intents",
-      isCard ? "Virtual card charged (demo)" : partnerLabel,
-      "Paid",
+      t("pay.signed"),
+      payWith === "NEAR" ? t("pay.convertingNear") : t("pay.routingUsdc"),
+      isCard ? t("pay.virtualCharged") : partnerLabel,
+      t("pay.paid"),
     ];
-  }, [payWith, partnerLabel, pendingReq]);
+  }, [payWith, partnerLabel, pendingReq, t]);
 
   async function run(req: SettlementRequest, title: string) {
     if (req.quote.totalUsdc > balanceUsdc) {
-      setError("Not enough USDC. Top up from Home first.");
+      setError(t("pay.notEnough"));
       return;
     }
     setError(null);
@@ -143,7 +145,7 @@ function PayInner() {
       setReceipt(r);
       setStage("done");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Payment failed");
+      setError(e instanceof Error ? e.message : t("pay.failed"));
       setStage(req.mode === "card" ? "world" : "confirm");
     }
   }
@@ -152,13 +154,13 @@ function PayInner() {
     if (!parsed || !quote) return;
     const req = buildQrisSettlement(parsed, quote);
     if (payWith === "NEAR") req.note = "Paid from NEAR, converted to USDC via NEAR Intents (1Click quote).";
-    run(req, parsed.merchantName || "Merchant");
+    run(req, parsed.merchantName || t("pay.merchantFallback"));
   }
 
   async function payWorld() {
     const amount = parseFloat(wAmount);
     if (!amount || amount <= 0) {
-      setError("Enter an amount.");
+      setError(t("pay.amountRequired"));
       return;
     }
     const fx = (await (await fetch(`/api/fx?currency=USD&amount=${amount}`)).json()) as FxQuote;
@@ -186,17 +188,17 @@ function PayInner() {
 
   const PayWithToggle = (
     <div className="flex items-center justify-between rounded-2xl bg-cream-200 p-1">
-      {(["USDC", "NEAR"] as PayWith[]).map((t) => (
+      {(["USDC", "NEAR"] as PayWith[]).map((token) => (
         <button
-          key={t}
+          key={token}
           type="button"
-          onClick={() => setPayWith(t)}
+          onClick={() => setPayWith(token)}
           className={clsx(
             "h-10 flex-1 rounded-xl text-sm font-semibold",
-            payWith === t ? "bg-ink text-cream-100" : "text-warm-600",
+            payWith === token ? "bg-ink text-cream-100" : "text-warm-600",
           )}
         >
-          Pay with {t}
+          {t("pay.payWith", { token })}
         </button>
       ))}
     </div>
@@ -209,14 +211,14 @@ function PayInner() {
         <div className="relative h-[min(62dvh,560px)] w-full">
           <QrScanner onResult={handleRaw} />
           <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
-            <h1 className="text-lg font-semibold text-cream-100">Scan to pay</h1>
+            <h1 className="text-lg font-semibold text-cream-100">{t("pay.scanTitle")}</h1>
             <DemoPill />
           </div>
         </div>
         <div className="space-y-3 px-5 pt-5">
           {error && <p className="rounded-2xl bg-[#f4dcd6] px-4 py-3 text-sm text-[#8a2d1c]">{error}</p>}
           <button type="button" className="btn-primary w-full" onClick={() => handleRaw(SAMPLE_QRS.indonesia)}>
-            <QrCode className="h-5 w-5" /> Use sample QR
+            <QrCode className="h-5 w-5" /> {t("pay.useSample")}
           </button>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(SAMPLE_QRS) as SampleKey[]).filter((k) => k !== "indonesia").map((k) => (
@@ -232,10 +234,10 @@ function PayInner() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <button type="button" className="btn-secondary" onClick={() => fileRef.current?.click()}>
-              <ImageUp className="h-4 w-4" /> Upload QR
+              <ImageUp className="h-4 w-4" /> {t("pay.upload")}
             </button>
             <button type="button" className="btn-secondary" onClick={() => setPasteOpen(true)}>
-              <ClipboardPaste className="h-4 w-4" /> Paste code
+              <ClipboardPaste className="h-4 w-4" /> {t("pay.paste")}
             </button>
           </div>
           <input
@@ -250,7 +252,7 @@ function PayInner() {
               try {
                 handleRaw(await decodeQrFromFile(f));
               } catch {
-                setError("No QR found in that image.");
+                setError(t("pay.noQrInImage"));
               }
             }}
           />
@@ -258,21 +260,21 @@ function PayInner() {
             <button type="button" onClick={() => setStage("world")} className="flex w-full items-center gap-3 py-4 text-left">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream-300"><Globe className="h-5 w-5" /></span>
               <span className="flex-1">
-                <span className="block font-semibold">Pay worldwide</span>
-                <span className="text-xs text-warm-600">NearPocket Card · virtual debit</span>
+                <span className="block font-semibold">{t("pay.worldwide")}</span>
+                <span className="text-xs text-warm-600">{t("pay.worldwideHint")}</span>
               </span>
             </button>
             <Link href="/merchant" className="flex w-full items-center gap-3 py-4">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream-300"><Store className="h-5 w-5" /></span>
               <span className="flex-1">
-                <span className="block font-semibold">Receive as a merchant</span>
-                <span className="text-xs text-warm-600">Show your own QR</span>
+                <span className="block font-semibold">{t("pay.merchant")}</span>
+                <span className="text-xs text-warm-600">{t("pay.merchantHint")}</span>
               </span>
             </Link>
           </div>
         </div>
 
-        <Sheet open={pasteOpen} onClose={() => setPasteOpen(false)} title="Paste a QR code">
+        <Sheet open={pasteOpen} onClose={() => setPasteOpen(false)} title={t("pay.pasteTitle")}>
           <div className="space-y-4">
             <textarea
               className="input min-h-28 font-mono text-xs"
@@ -281,7 +283,7 @@ function PayInner() {
               onChange={(e) => setPasteText(e.target.value)}
             />
             <div>
-              <p className="mb-2 text-sm text-warm-600">Or try a sample from another country</p>
+              <p className="mb-2 text-sm text-warm-600">{t("pay.orSample")}</p>
               <div className="flex flex-wrap gap-2">
                 {(Object.keys(SAMPLE_QRS) as SampleKey[]).map((k) => (
                   <button
@@ -307,7 +309,7 @@ function PayInner() {
                 handleRaw(pasteText);
               }}
             >
-              Continue
+              {t("common.continue")}
             </button>
           </div>
         </Sheet>
@@ -320,7 +322,7 @@ function PayInner() {
     const req = pendingReq!;
     return (
       <main className="flex min-h-[70dvh] flex-col justify-center">
-        <p className="text-center text-sm text-warm-600">Paying {req.merchantName}</p>
+        <p className="text-center text-sm text-warm-600">{t("pay.paying", { name: req.merchantName })}</p>
         <p className="mt-1 text-center text-4xl font-bold tracking-tight">
           {formatFiat(req.localAmount, req.localCurrency, req.rail.currencySymbol)}
         </p>
@@ -354,10 +356,10 @@ function PayInner() {
       <main className="space-y-4">
         <ReceiptView receipt={receipt} />
         <button type="button" className="btn-primary w-full" onClick={reset}>
-          Done
+          {t("common.done")}
         </button>
         <button type="button" className="btn-secondary w-full" onClick={() => router.push("/activity")}>
-          View activity
+          {t("pay.viewActivity")}
         </button>
       </main>
     );
@@ -385,7 +387,7 @@ function PayInner() {
   return (
     <main className="space-y-5">
       <button type="button" onClick={reset} className="flex h-10 items-center gap-1 text-sm font-medium">
-        <ArrowLeft className="h-4 w-4" /> Scan again
+        <ArrowLeft className="h-4 w-4" /> {t("pay.scanAgain")}
       </button>
 
       <section className="card">
@@ -394,14 +396,14 @@ function PayInner() {
             {COUNTRY_FLAG[p.rail.countryCode] || "🏳️"}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-lg font-semibold">{p.merchantName || "Merchant"}</p>
+            <p className="truncate text-lg font-semibold">{p.merchantName || t("pay.merchantFallback")}</p>
             <p className="text-sm text-warm-600">
               {[p.merchantCity, p.rail.country].filter(Boolean).join(", ")} · {p.rail.name}
             </p>
           </div>
         </div>
         {!p.crcValid && (
-          <p className="mt-3 rounded-xl bg-[#f4dcd6] px-3 py-2 text-sm text-[#8a2d1c]">This QR failed its checksum. Ask the merchant to show it again.</p>
+          <p className="mt-3 rounded-xl bg-[#f4dcd6] px-3 py-2 text-sm text-[#8a2d1c]">{t("pay.crcFail")}</p>
         )}
         <div className="mt-5 border-t border-cream-300 pt-5 text-center">
           {p.transactionAmount ? (
@@ -410,7 +412,7 @@ function PayInner() {
             </p>
           ) : (
             <label className="block">
-              <span className="text-sm text-warm-600">Enter amount ({p.rail.currency})</span>
+              <span className="text-sm text-warm-600">{t("pay.enterAmount", { currency: p.rail.currency })}</span>
               <input
                 autoFocus
                 className="mt-2 w-full bg-transparent text-center text-4xl font-bold tracking-tight outline-none placeholder:text-cream-400"
@@ -423,9 +425,9 @@ function PayInner() {
           )}
           <p className="mt-2 text-sm text-warm-600">
             {quote
-              ? `≈ ${formatUsdc(quote.totalUsdc)} · fee ${quote.feeBps / 100}%`
+              ? t("pay.feeLine", { usdc: formatUsdc(quote.totalUsdc), fee: quote.feeBps / 100 })
               : localAmount
-                ? "Getting rate…"
+                ? t("pay.gettingRate")
                 : " "}
           </p>
           {quote && displayRate && displayCurrency !== p.rail.currency && displayCurrency !== "USD" && (
@@ -440,17 +442,24 @@ function PayInner() {
       {PayWithToggle}
       {payWith === "NEAR" && nearNeeded && (
         <p className="-mt-2 px-1 text-sm text-warm-600">
-          ≈ {nearNeeded} NEAR → USDC via NEAR Intents{nearPerUsdc?.real ? " (live 1Click quote)" : " (estimate)"}
+          {nearPerUsdc?.real
+            ? t("pay.nearLive", { amount: nearNeeded })
+            : t("pay.nearEstimate", { amount: nearNeeded })}
         </p>
       )}
 
       {error && <p className="rounded-2xl bg-[#f4dcd6] px-4 py-3 text-sm text-[#8a2d1c]">{error}</p>}
 
       <button type="button" className="btn-primary h-14 w-full text-lg" disabled={!quote || !p.crcValid} onClick={payQr}>
-        Pay {localAmount ? formatFiat(localAmount, p.rail.currency, p.rail.currencySymbol) : ""}
+        {localAmount
+          ? t("pay.payFiat", { amount: formatFiat(localAmount, p.rail.currency, p.rail.currencySymbol) })
+          : t("pay.pay")}
       </button>
       <p className="text-center text-xs text-warm-500">
-        Merchant gets {p.rail.currency} from a licensed partner. Balance left: {formatUsdc(Math.max(0, balanceUsdc - (quote?.totalUsdc || 0)))}
+        {t("pay.merchantGets", {
+          currency: p.rail.currency,
+          balance: formatUsdc(Math.max(0, balanceUsdc - (quote?.totalUsdc || 0))),
+        })}
       </p>
     </main>
   );

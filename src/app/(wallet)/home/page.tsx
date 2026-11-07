@@ -40,9 +40,9 @@ export default function HomePage() {
     setMsg(null);
     try {
       await approveWaitlistItem(item);
-      setMsg(`Bought ${item.title}.`);
+      setMsg(t("home.bought", { title: item.title }));
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Approve failed");
+      setMsg(e instanceof Error ? e.message : t("home.approveFailed"));
     } finally {
       setBusyId(null);
     }
@@ -67,7 +67,7 @@ export default function HomePage() {
               <p className="mt-1 font-semibold">{w.title}</p>
               <p className="text-sm text-cream-400">
                 {w.currentPriceUsdc.toFixed(2)} USDC · {w.marketplace || w.merchant}
-                {w.maxBudgetUsdc ? ` · budget ${w.maxBudgetUsdc}` : ""}
+                {w.maxBudgetUsdc ? ` · ${t("home.budgetPart", { amount: w.maxBudgetUsdc })}` : ""}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button

@@ -6,8 +6,10 @@ import { DemoPill } from "./DemoBanner";
 import { WalletButton } from "./WalletButton";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { BRAND } from "@/config/brand";
+import { useT } from "@/lib/i18n";
 
 export function TopBar({ title }: { title?: string }) {
+  const t = useT();
   return (
     <header className="mb-5 flex min-h-14 items-start justify-between gap-2">
       <div className="min-w-0 flex-1">
@@ -27,7 +29,7 @@ export function TopBar({ title }: { title?: string }) {
         <LanguageSwitcher compact />
         <Link
           href="/settings"
-          aria-label="Settings"
+          aria-label={t("nav.settings")}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-cream-100 ring-1 ring-cream-300"
         >
           <Settings className="h-4 w-4" />
