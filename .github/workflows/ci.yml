@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    name: install, lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test (QRIS/EMVCo, i18n, Intents gate)
+        run: npm test
+      - name: Build with no env vars
+        run: npm run build
+        env:
+          NEXT_PUBLIC_PRIVY_APP_ID: ""
+          XENDIT_SECRET_KEY: ""
+          NEAR_INTENTS_EXECUTE: ""
+
+  contract:
+    name: agent-policy unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test --manifest-path contracts/agent-policy/Cargo.toml -- --test-threads=1

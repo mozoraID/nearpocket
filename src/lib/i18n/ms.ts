@@ -207,7 +207,7 @@ export const ms: Dict = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "Imbas QR tempatan, di mana kami menyokong",
-  "landing.featQrBody": "Satu aliran imbasan untuk QRIS, PromptPay, DuitNow, PayNow, QR Ph, VietQR, JPQR, Korea QR, dan lagi. Rel rentas sempadan — penyelesaian demo melalui sandbox rakan kongsi berlesen.",
+  "landing.featQrBody": "Mulakan dengan QRIS, PromptPay, DuitNow dan kad NearPocket. PayNow, JPQR dan Korea QR dihurai sebagai EMVCo. QR Ph, VietQR dan UPI dikumpulkan sebagai lagi rel (demo). Penyelesaian melalui sandbox rakan kongsi berlesen.",
 
   "landing.featWorldTitle": "Bayar ke seluruh dunia",
   "landing.featWorldBody": "NearPocket Card ialah demo debit maya untuk tempat tanpa QR. Diselesaikan melalui NEAR Intents. Rakan kongsi kad: demo — bukan kad near.com yang aktif.",
@@ -234,7 +234,8 @@ export const ms: Dict = {
   "landing.trust4": "Lencana testnet di mana-mana — tiada wang sebenar",
 
   "landing.railsTitle": "Rel QR yang disokong (demo)",
-  "landing.railsHint": "QR tempatan mengikut negara, serta kad seluruh dunia dalam USD. Penyelesaian ialah sandbox / demo.",
+  "landing.railsHint": "QRIS, PromptPay, DuitNow dan kad ialah aliran untuk dicuba. Penyelesaian ialah sandbox / demo.",
+  "landing.railsMore": "Lagi rel (demo)",
   "landing.railId": "🇮🇩 Indonesia · QRIS",
   "landing.railSg": "🇸🇬 Singapura · PayNow / SGQR",
   "landing.railMy": "🇲🇾 Malaysia · DuitNow",

@@ -222,3 +222,147 @@ pub struct PolicyView {
     pub spent_today_usdc_6: U128,
     pub owner: AccountId,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::test_utils::VMContextBuilder;
+    use near_sdk::{test_vm_config, MockedBlockchain, RuntimeFeesConfig, VMContext};
+    use std::collections::HashMap;
+
+    const OWNER: &str = "owner.testnet";
+    const AGENT: &str = "agent.testnet";
+    const STRANGER: &str = "stranger.testnet";
+    /// Nanoseconds in a UTC day. Matches `unix_day`.
+    const DAY_NS: u64 = 86_400 * 1_000_000_000;
+
+    fn context(predecessor: &str, block_timestamp: u64) -> VMContext {
+        VMContextBuilder::new()
+            .current_account_id("policy.testnet".parse().unwrap())
+            .signer_account_id(predecessor.parse().unwrap())
+            .predecessor_account_id(predecessor.parse().unwrap())
+            .block_timestamp(block_timestamp)
+            .build()
+    }
+
+    /// Swap predecessor / timestamp without dropping contract storage.
+    /// `testing_env!` replaces the mock trie; collections live in that trie.
+    fn switch(predecessor: &str, block_timestamp: u64) {
+        let storage = near_sdk::mock::with_mocked_blockchain(|b| b.take_storage());
+        testing_env_with_storage(context(predecessor, block_timestamp), storage);
+    }
+
+    fn testing_env_with_storage(context: VMContext, storage: HashMap<Vec<u8>, Vec<u8>>) {
+        near_sdk::env::set_blockchain_interface(MockedBlockchain::new(
+            context,
+            test_vm_config(),
+            RuntimeFeesConfig::test(),
+            Vec::new(),
+            storage,
+            HashMap::new(),
+            None,
+        ));
+    }
+
+    fn setup(daily: u128, per_item: u128) -> Contract {
+        switch(OWNER, DAY_NS);
+        Contract::new(U128(daily), U128(per_item))
+    }
+
+    fn queue(contract: &mut Contract, id: &str, amount: u128) {
+        switch(OWNER, DAY_NS);
+        contract.queue_item(id.into(), format!("item {id}"), "shopping".into(), U128(amount));
+    }
+
+    #[test]
+    fn approval_gate_holds_spend_until_owner_approves() {
+        let mut contract = setup(5_000_000, 2_000_000);
+        queue(&mut contract, "earbuds", 1_000_000);
+
+        switch(AGENT, DAY_NS);
+        let status = contract.request_spend("earbuds".into(), U128(1_000_000));
+        assert_eq!(status, "awaiting_approval");
+        assert_eq!(contract.get_policy().spent_today_usdc_6.0, 0);
+
+        switch(OWNER, DAY_NS);
+        contract.approve_spend("earbuds".into(), U128(1_000_000), None);
+        let policy = contract.get_policy();
+        assert_eq!(policy.spent_today_usdc_6.0, 1_000_000);
+        assert!(policy.require_approval);
+    }
+
+    #[test]
+    #[should_panic(expected = "owner only")]
+    fn non_owner_cannot_set_policy() {
+        let mut contract = setup(5_000_000, 2_000_000);
+        switch(STRANGER, DAY_NS);
+        contract.set_policy(Some(U128(9_000_000)), None, Some(false), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "owner only")]
+    fn non_owner_cannot_approve_spend() {
+        let mut contract = setup(5_000_000, 2_000_000);
+        queue(&mut contract, "earbuds", 1_000_000);
+        switch(AGENT, DAY_NS);
+        let status = contract.request_spend("earbuds".into(), U128(1_000_000));
+        assert_eq!(status, "awaiting_approval");
+        switch(AGENT, DAY_NS);
+        contract.approve_spend("earbuds".into(), U128(1_000_000), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "over per-item max")]
+    fn per_item_max_rejects_request() {
+        let mut contract = setup(5_000_000, 2_000_000);
+        queue(&mut contract, "laptop", 3_000_000);
+        switch(AGENT, DAY_NS);
+        contract.request_spend("laptop".into(), U128(3_000_000));
+    }
+
+    #[test]
+    fn daily_limit_resets_on_the_next_utc_day() {
+        let mut contract = setup(2_000_000, 2_000_000);
+        switch(OWNER, DAY_NS);
+        contract.set_policy(None, None, Some(false), None);
+        queue(&mut contract, "coffee", 1_000_000);
+
+        switch(AGENT, DAY_NS);
+        assert_eq!(
+            contract.request_spend("coffee".into(), U128(1_000_000)),
+            "purchased"
+        );
+        assert_eq!(contract.get_policy().spent_today_usdc_6.0, 1_000_000);
+
+        switch(AGENT, DAY_NS * 2);
+        assert_eq!(contract.get_policy().spent_today_usdc_6.0, 0);
+        queue(&mut contract, "coffee-2", 1_000_000);
+        // queue() switches back to day 1 via DAY_NS. Re-enter the next day.
+        switch(AGENT, DAY_NS * 2);
+        assert_eq!(
+            contract.request_spend("coffee-2".into(), U128(1_000_000)),
+            "purchased"
+        );
+        assert_eq!(contract.get_policy().spent_today_usdc_6.0, 1_000_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "over daily limit")]
+    fn agent_spend_over_daily_limit_is_refused() {
+        let mut contract = setup(2_000_000, 2_000_000);
+        queue(&mut contract, "first", 1_000_000);
+        switch(AGENT, DAY_NS);
+        assert_eq!(
+            contract.request_spend("first".into(), U128(1_000_000)),
+            "awaiting_approval"
+        );
+        switch(OWNER, DAY_NS);
+        contract.approve_spend("first".into(), U128(1_000_000), None);
+        assert_eq!(contract.get_policy().spent_today_usdc_6.0, 1_000_000);
+
+        queue(&mut contract, "second", 1_500_000);
+        switch(AGENT, DAY_NS);
+        // 1.00 already spent + 1.50 requested > 2.00 daily limit.
+        contract.request_spend("second".into(), U128(1_500_000));
+    }
+}

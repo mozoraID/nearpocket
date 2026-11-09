@@ -207,7 +207,7 @@ export const ja: Dict = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "対応している現地QRをスキャン",
-  "landing.featQrBody": "QRIS、PromptPay、DuitNow、PayNow、QR Ph、VietQR、JPQR、Korea QRなどを同じ操作で。クロスボーダーのレール。決済はライセンスパートナーのサンドボックスによるデモです。",
+  "landing.featQrBody": "まず試すのは QRIS、PromptPay、DuitNow と NearPocket カードです。PayNow、JPQR、Korea QR は EMVCo として解析します。QR Ph、VietQR、UPI はその他のレール（デモ）です。決済はライセンスパートナーのサンドボックスです。",
 
   "landing.featWorldTitle": "世界中で支払う",
   "landing.featWorldBody": "NearPocket Cardは、QRがない場所向けのバーチャルデビットのデモです。NEAR Intentsで決済します。カードパートナーはデモであり、提供中のnear.comカードではありません。",
@@ -234,7 +234,8 @@ export const ja: Dict = {
   "landing.trust4": "どこでもtestnet表示 — 実資金はありません",
 
   "landing.railsTitle": "対応QRレール（デモ）",
-  "landing.railsHint": "国ごとの現地QRに加え、USDのワールドワイドカード。決済はサンドボックス / デモです。",
+  "landing.railsHint": "試すなら QRIS、PromptPay、DuitNow とカード。決済はサンドボックス / デモです。",
+  "landing.railsMore": "その他のレール（デモ）",
   "landing.railId": "🇮🇩 インドネシア · QRIS",
   "landing.railSg": "🇸🇬 シンガポール · PayNow / SGQR",
   "landing.railMy": "🇲🇾 マレーシア · DuitNow",

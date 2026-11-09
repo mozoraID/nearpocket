@@ -1,4 +1,4 @@
-import type { SettlementAdapter, SettlementReceipt, SettlementRequest } from "./types";
+import { PartnerDownError, type SettlementAdapter, type SettlementReceipt, type SettlementRequest } from "./types";
 
 /**
  * Xendit Test Mode adapter for QRIS create / payout-shaped settlement.
@@ -51,7 +51,10 @@ export function createXenditAdapter(secretKey: string): SettlementAdapter {
           }),
         });
 
-        const body = await res.json();
+        const body = await res.json().catch(() => ({}));
+        if (res.status >= 500) {
+          throw new PartnerDownError("xendit-sandbox", `Xendit HTTP ${res.status}`);
+        }
         if (!res.ok) {
           timeline.push({
             at: now(),
@@ -94,18 +97,11 @@ export function createXenditAdapter(secretKey: string): SettlementAdapter {
           mocked: false,
         };
       } catch (e) {
-        timeline.push({
-          at: now(),
-          status: "failed",
-          detail: e instanceof Error ? e.message : "xendit network error",
-        });
-        return {
-          request: req,
-          status: "failed",
-          timeline,
-          complianceNote: "Xendit sandbox unreachable.",
-          mocked: false,
-        };
+        if (e instanceof PartnerDownError) throw e;
+        throw new PartnerDownError(
+          "xendit-sandbox",
+          e instanceof Error ? e.message : "xendit network error",
+        );
       }
     },
   };

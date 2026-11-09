@@ -20,16 +20,19 @@ import { BRAND } from "@/config/brand";
 import { ProductCarousel } from "./ProductCarousel";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
-const RAILS = [
+const PRIMARY_RAILS = [
   "landing.railId",
   "landing.railTh",
   "landing.railMy",
+  "landing.railWw",
+] as const;
+
+const MORE_RAILS = [
   "landing.railSg",
-  "landing.railPh",
-  "landing.railVn",
   "landing.railJp",
   "landing.railKr",
-  "landing.railWw",
+  "landing.railPh",
+  "landing.railVn",
 ] as const;
 
 const FAQ = [
@@ -276,10 +279,23 @@ export function LandingPage() {
               <h2 className="text-center text-3xl font-semibold tracking-tight">{t("landing.railsTitle")}</h2>
               <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-warm-600">{t("landing.railsHint")}</p>
               <div className="mt-8 flex flex-wrap justify-center gap-2">
-                {RAILS.map((k) => (
+                {PRIMARY_RAILS.map((k) => (
                   <span
                     key={k}
-                    className="rounded-full bg-cream-100 px-4 py-2 text-sm font-medium ring-1 ring-cream-300"
+                    className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream-100"
+                  >
+                    {t(k)}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-6 text-center text-xs font-semibold uppercase tracking-wide text-warm-600">
+                {t("landing.railsMore")}
+              </p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                {MORE_RAILS.map((k) => (
+                  <span
+                    key={k}
+                    className="rounded-full bg-cream-100 px-4 py-2 text-sm font-medium text-warm-600 ring-1 ring-cream-300"
                   >
                     {t(k)}
                   </span>

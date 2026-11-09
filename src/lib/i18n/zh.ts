@@ -207,7 +207,7 @@ export const zh: Dict = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "扫描我们支持的本地二维码",
-  "landing.featQrBody": "同一套扫码流程覆盖 QRIS、PromptPay、DuitNow、PayNow、QR Ph、VietQR、JPQR、Korea QR 等。跨境通道 — 通过持牌合作方沙盒进行演示结算。",
+  "landing.featQrBody": "优先体验 QRIS、PromptPay、DuitNow 和 NearPocket 卡。PayNow、JPQR、Korea QR 按 EMVCo 解析。QR Ph、VietQR、UPI 归入更多通道（演示）。结算走持牌合作方沙盒。",
 
   "landing.featWorldTitle": "全球付款",
   "landing.featWorldBody": "NearPocket Card 是没有二维码场景的虚拟借记演示。通过 NEAR Intents 结算。卡合作方为演示，并非已上线的 near.com 卡。",
@@ -234,7 +234,8 @@ export const zh: Dict = {
   "landing.trust4": "处处都有 testnet 标识 — 没有真实资金",
 
   "landing.railsTitle": "支持的二维码通道（演示）",
-  "landing.railsHint": "按国家区分的本地二维码，以及美元全球卡。结算为沙盒 / 演示。",
+  "landing.railsHint": "优先试用 QRIS、PromptPay、DuitNow 和卡。结算为沙盒 / 演示。",
+  "landing.railsMore": "更多通道（演示）",
   "landing.railId": "🇮🇩 印度尼西亚 · QRIS",
   "landing.railSg": "🇸🇬 新加坡 · PayNow / SGQR",
   "landing.railMy": "🇲🇾 马来西亚 · DuitNow",
