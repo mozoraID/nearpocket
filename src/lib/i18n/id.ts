@@ -208,7 +208,7 @@ export const id: Dict = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "Scan QRIS & QR ASEAN",
-  "landing.featQrBody": "Bayar di warung, kafe, dan toko di Indonesia serta ASEAN dengan alur scan yang sama. Rel QR lintas negara — settlement demo via sandbox PJP berizin.",
+  "landing.featQrBody": "Mulai dari QRIS, PromptPay, DuitNow, dan kartu NearPocket. PayNow, JPQR, dan Korea QR terbaca sebagai EMVCo. QR Ph, VietQR, dan UPI masuk rel lain (demo). Settlement lewat sandbox mitra berlisensi.",
 
   "landing.featWorldTitle": "Bayar ke seluruh dunia",
   "landing.featWorldBody": "NearPocket Card adalah demo debit virtual untuk tempat tanpa QR. Diselesaikan via NEAR Intents. Mitra kartu: demo — bukan kartu near.com yang live.",
@@ -235,7 +235,8 @@ export const id: Dict = {
   "landing.trust4": "Lencana testnet di mana-mana — tanpa uang sungguhan",
 
   "landing.railsTitle": "Rel QR yang didukung (demo)",
-  "landing.railsHint": "Contoh kode QR untuk QRIS Indonesia dan skema ASEAN terpilih. Settlement bersifat sandbox / demo.",
+  "landing.railsHint": "QRIS, PromptPay, DuitNow, dan kartu adalah alur yang dicoba. Settlement bersifat sandbox / demo.",
+  "landing.railsMore": "Rel lain (demo)",
   "landing.railId": "Indonesia · QRIS",
   "landing.railSg": "Singapura · PayNow QR",
   "landing.railMy": "Malaysia · DuitNow QR",

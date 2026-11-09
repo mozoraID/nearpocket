@@ -207,7 +207,7 @@ export const ko: Dict = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "지원하는 로컬 QR 스캔",
-  "landing.featQrBody": "QRIS, PromptPay, DuitNow, PayNow, QR Ph, VietQR, JPQR, Korea QR 등을 하나의 스캔 흐름으로. 국경 간 레일 — 라이선스 파트너 샌드박스를 통한 데모 정산.",
+  "landing.featQrBody": "먼저 써볼 흐름은 QRIS, PromptPay, DuitNow와 NearPocket 카드입니다. PayNow, JPQR, Korea QR은 EMVCo로 파싱합니다. QR Ph, VietQR, UPI는 다른 레일(데모)입니다. 정산은 라이선스 파트너 샌드박스입니다.",
 
   "landing.featWorldTitle": "전 세계에서 결제",
   "landing.featWorldBody": "NearPocket Card는 QR이 없는 곳을 위한 가상 직불 데모입니다. NEAR Intents로 정산합니다. 카드 파트너는 데모이며, 출시된 near.com 카드가 아닙니다.",
@@ -234,7 +234,8 @@ export const ko: Dict = {
   "landing.trust4": "모든 곳에 testnet 표시 — 실제 자금 없음",
 
   "landing.railsTitle": "지원 QR 레일 (데모)",
-  "landing.railsHint": "국가별 로컬 QR과 USD 해외 카드. 정산은 샌드박스 / 데모입니다.",
+  "landing.railsHint": "QRIS, PromptPay, DuitNow와 카드가 먼저 써볼 흐름입니다. 정산은 샌드박스 / 데모입니다.",
+  "landing.railsMore": "다른 레일 (데모)",
   "landing.railId": "🇮🇩 인도네시아 · QRIS",
   "landing.railSg": "🇸🇬 싱가포르 · PayNow / SGQR",
   "landing.railMy": "🇲🇾 말레이시아 · DuitNow",

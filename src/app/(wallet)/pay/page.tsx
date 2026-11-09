@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import clsx from "clsx";
@@ -60,6 +60,21 @@ function PayInner() {
   const [wMerchant, setWMerchant] = useState("Apple Store Online");
   const [wAmount, setWAmount] = useState("49");
 
+  const handleRaw = useCallback((raw: string) => {
+    setError(null);
+    try {
+      const p = parseEmvQr(raw.trim());
+      if (!p.merchantName && !p.merchantAccountInformation.length) throw new Error("not emv");
+      setParsed(p);
+      setAmountInput(p.transactionAmount || "");
+      setQuote(null);
+      setStage("confirm");
+    } catch {
+      setError(t("pay.badQr"));
+      setStage("scan");
+    }
+  }, [t]);
+
   useEffect(() => {
     fetch("/api/settle").then((r) => r.json()).then((d) => setBackend(d.backend || "")).catch(() => null);
     fetch("/api/quote?from=NEAR&amount=1")
@@ -74,22 +89,7 @@ function PayInner() {
       sessionStorage.removeItem("nearpocket_scanned_qr");
       handleRaw(scanned);
     }
-  }, []);
-
-  function handleRaw(raw: string) {
-    setError(null);
-    try {
-      const p = parseEmvQr(raw.trim());
-      if (!p.merchantName && !p.merchantAccountInformation.length) throw new Error("not emv");
-      setParsed(p);
-      setAmountInput(p.transactionAmount || "");
-      setQuote(null);
-      setStage("confirm");
-    } catch {
-      setError(t("pay.badQr"));
-      setStage("scan");
-    }
-  }
+  }, [handleRaw]);
 
   const localAmount = useMemo(() => {
     const n = parseFloat((parsed?.transactionAmount || amountInput || "").replace(/,/g, ""));

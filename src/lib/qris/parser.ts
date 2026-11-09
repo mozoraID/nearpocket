@@ -4,7 +4,7 @@
  * Used for QRIS (ID), PromptPay (TH), DuitNow (MY), NETS (SG), JPQR (JP), Korea QR.
  */
 
-import { PaymentRail, railFromCurrency, RAILS } from "./countries";
+import { railFromCurrency, RAILS, type PaymentRail } from "./countries";
 
 export interface EmvTag {
   id: string;
@@ -26,6 +26,16 @@ export interface ParsedQrPayment {
   merchantCity?: string;
   postalCode?: string;
   additionalData?: EmvTag[];
+  /** Tag 55. 01 prompted tip, 02 fixed convenience fee, 03 percentage fee. */
+  tipOrConvenienceIndicator?: string;
+  /** Tag 56. Fixed convenience fee, present when tag 55 is 02. */
+  convenienceFeeFixed?: string;
+  /** Tag 57. Percentage convenience fee, present when tag 55 is 03. */
+  convenienceFeePercentage?: string;
+  /** Tag 64 subtag 00. */
+  languagePreference?: string;
+  /** Tag 64 subtag 01. Merchant name in the alternate language. */
+  merchantNameAlt?: string;
   crc?: string;
   crcValid: boolean;
   rail: PaymentRail;
@@ -97,6 +107,10 @@ export function parseEmvQr(raw: string): ParsedQrPayment {
   const pfTag = findTag(tags, "00");
   const postalTag = findTag(tags, "61");
   const addTag = findTag(tags, "62");
+  const tipTag = findTag(tags, "55");
+  const feeFixedTag = findTag(tags, "56");
+  const feePctTag = findTag(tags, "57");
+  const langTag = findTag(tags, "64");
   const crcTag = findTag(tags, "63");
 
   // CRC covers everything up to and including "6304"
@@ -139,6 +153,11 @@ export function parseEmvQr(raw: string): ParsedQrPayment {
     merchantCity,
     postalCode: postalTag?.value,
     additionalData: addTag?.children,
+    tipOrConvenienceIndicator: tipTag?.value,
+    convenienceFeeFixed: feeFixedTag?.value,
+    convenienceFeePercentage: feePctTag?.value,
+    languagePreference: langTag?.children?.find((c) => c.id === "00")?.value,
+    merchantNameAlt: langTag?.children?.find((c) => c.id === "01")?.value,
     crc: crcTag?.value,
     crcValid,
     rail,

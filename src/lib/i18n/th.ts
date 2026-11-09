@@ -207,7 +207,7 @@ export const th: Dict = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "สแกน QR ท้องถิ่นในประเทศที่รองรับ",
-  "landing.featQrBody": "สแกนครั้งเดียวใช้ได้กับ QRIS, PromptPay, DuitNow, PayNow, QR Ph, VietQR, JPQR, Korea QR และอื่นๆ รางชำระข้ามประเทศ — การโอนในเดโมผ่านแซนด์บ็อกซ์ของพาร์ตเนอร์ที่ได้รับใบอนุญาต",
+  "landing.featQrBody": "เริ่มที่ QRIS, PromptPay, DuitNow และการ์ด NearPocket PayNow, JPQR และ Korea QR อ่านเป็น EMVCo ได้ QR Ph, VietQR และ UPI อยู่ในรางเพิ่มเติม (เดโม) การชำระผ่านแซนด์บ็อกซ์ของพาร์ตเนอร์ที่ได้รับใบอนุญาต",
 
   "landing.featWorldTitle": "จ่ายทั่วโลก",
   "landing.featWorldBody": "NearPocket Card คือเดโมบัตรเดบิตเสมือนสำหรับที่ที่ไม่มี QR ชำระผ่าน NEAR Intents พาร์ตเนอร์บัตรเป็นเดโม ไม่ใช่บัตร near.com ที่เปิดใช้จริง",
@@ -234,7 +234,8 @@ export const th: Dict = {
   "landing.trust4": "ป้าย testnet ทุกจุด — ไม่ใช่เงินจริง",
 
   "landing.railsTitle": "ราง QR ที่รองรับ (เดโม)",
-  "landing.railsHint": "QR ท้องถิ่นตามประเทศ พร้อมบัตรทั่วโลกเป็น USD การชำระเป็นแซนด์บ็อกซ์ / เดโม",
+  "landing.railsHint": "QRIS, PromptPay, DuitNow และการ์ดคือเส้นทางที่ควรลอง การชำระเป็นแซนด์บ็อกซ์ / เดโม",
+  "landing.railsMore": "รางเพิ่มเติม (เดโม)",
   "landing.railId": "🇮🇩 อินโดนีเซีย · QRIS",
   "landing.railSg": "🇸🇬 สิงคโปร์ · PayNow / SGQR",
   "landing.railMy": "🇲🇾 มาเลเซีย · DuitNow",

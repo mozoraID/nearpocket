@@ -9,7 +9,10 @@
     "lint": "eslint",
     "test:qris": "node scripts/test-qris.mjs",
     "test:i18n": "node scripts/test-i18n.mjs",
-    "test": "npm run test:qris && npm run test:i18n"
+    "test:intents": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-ts.mjs scripts/test-intents.mts",
+    "test:contract": "bash scripts/test-contract.sh",
+    "testnet:demo": "node scripts/testnet-demo.mjs",
+    "test": "npm run test:qris && npm run test:i18n && npm run test:intents"
   },
   "dependencies": {
     "@near-wallet-selector/core": "^10.1.4",

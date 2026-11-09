@@ -207,7 +207,7 @@ export const en = {
   "landing.navFaq": "FAQ",
 
   "landing.featQrTitle": "Scan local QR, anywhere we support",
-  "landing.featQrBody": "One scan flow for QRIS, PromptPay, DuitNow, PayNow, QR Ph, VietQR, JPQR, Korea QR, and more. Cross-border rails — demo settlement via a licensed partner sandbox.",
+  "landing.featQrBody": "Start with QRIS, PromptPay, DuitNow, and NearPocket Card. PayNow, JPQR, and Korea QR parse as EMVCo. QR Ph, VietQR, and UPI sit under more rails (demo). Settlement is a licensed-partner sandbox.",
 
   "landing.featWorldTitle": "Pay worldwide",
   "landing.featWorldBody": "NearPocket Card is a virtual debit demo for places without QR. Settled via NEAR Intents. Card partner: demo — not a live near.com card.",
@@ -234,7 +234,8 @@ export const en = {
   "landing.trust4": "Testnet badge everywhere — no real money",
 
   "landing.railsTitle": "Supported QR rails (demo)",
-  "landing.railsHint": "Local QR by country, plus worldwide card in USD. Settlement is sandbox / demo.",
+  "landing.railsHint": "QRIS, PromptPay, DuitNow, and the card are the flows to try. Settlement is sandbox / demo.",
+  "landing.railsMore": "More rails (demo)",
   "landing.railId": "🇮🇩 Indonesia · QRIS",
   "landing.railSg": "🇸🇬 Singapore · PayNow / SGQR",
   "landing.railMy": "🇲🇾 Malaysia · DuitNow",

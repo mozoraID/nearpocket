@@ -44,3 +44,13 @@ export interface SettlementAdapter {
   /** Licensed-PJP-shaped adapter. Demo implementations are sandboxed/mocked. */
   settle(req: SettlementRequest): Promise<SettlementReceipt>;
 }
+
+/** Partner HTTP API was unreachable or returned 5xx. Callers fall back to the mock adapter. */
+export class PartnerDownError extends Error {
+  readonly partnerId: string;
+  constructor(partnerId: string, message: string) {
+    super(message);
+    this.name = "PartnerDownError";
+    this.partnerId = partnerId;
+  }
+}

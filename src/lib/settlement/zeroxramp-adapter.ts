@@ -1,4 +1,4 @@
-import type { SettlementAdapter, SettlementReceipt, SettlementRequest } from "./types";
+import { PartnerDownError, type SettlementAdapter, type SettlementReceipt, type SettlementRequest } from "./types";
 
 /**
  * 0xramp research (docs.0xramp.app, Nov 2026):
@@ -56,6 +56,9 @@ export function createZeroXRampAdapter(opts: {
         });
 
         const body = await res.json().catch(() => ({}));
+        if (res.status >= 500) {
+          throw new PartnerDownError("0xramp-staging", `0xramp HTTP ${res.status}`);
+        }
         if (!res.ok) {
           timeline.push({
             at: now(),
@@ -93,18 +96,11 @@ export function createZeroXRampAdapter(opts: {
           mocked: false,
         };
       } catch (e) {
-        timeline.push({
-          at: now(),
-          status: "failed",
-          detail: e instanceof Error ? e.message : "0xramp error",
-        });
-        return {
-          request: req,
-          status: "failed",
-          timeline,
-          complianceNote: "0xramp staging unreachable.",
-          mocked: false,
-        };
+        if (e instanceof PartnerDownError) throw e;
+        throw new PartnerDownError(
+          "0xramp-staging",
+          e instanceof Error ? e.message : "0xramp network error",
+        );
       }
     },
   };

@@ -1,7 +1,7 @@
 import { mockPartnerAdapter } from "./mock-adapter";
 import { createXenditAdapter, hasXenditKey } from "./xendit-adapter";
 import { createZeroXRampAdapter, hasZeroXRampConfig } from "./zeroxramp-adapter";
-import type { SettlementAdapter, SettlementRequest, SettlementReceipt } from "./types";
+import { PartnerDownError, type SettlementAdapter, type SettlementRequest, type SettlementReceipt } from "./types";
 import type { ParsedQrPayment } from "../qris/parser";
 import type { FxQuote } from "../fx/quote";
 import { RAILS } from "../qris/countries";
@@ -72,7 +72,27 @@ export async function settle(
   req: SettlementRequest,
   adapterId?: string,
 ): Promise<SettlementReceipt> {
-  return resolveAdapter(adapterId).settle(req);
+  const adapter = resolveAdapter(adapterId);
+  try {
+    return await adapter.settle(req);
+  } catch (e) {
+    if (!(e instanceof PartnerDownError) || adapter.id === mockPartnerAdapter.id) throw e;
+    const fallback = await mockPartnerAdapter.settle(req);
+    return {
+      ...fallback,
+      timeline: [
+        {
+          at: new Date().toISOString(),
+          status: "failed",
+          detail: `${e.partnerId} is down (${e.message}). Fell back to the sandbox mock. No crypto was sent.`,
+        },
+        ...fallback.timeline,
+      ],
+      complianceNote:
+        `${e.partnerId} was unreachable, so settlement used the labeled sandbox mock. ` +
+        fallback.complianceNote,
+    };
+  }
 }
 
 export function activeSettlementBackend() {
