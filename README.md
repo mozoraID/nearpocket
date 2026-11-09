@@ -58,7 +58,7 @@ Earlier testnet transactions from the original deploy (6 Nov 2026), already on-c
 | approve_spend | https://testnet.nearblocks.io/txns/Em45x6JBvu58xeVWxQm66hx2r6S4JYYxWbjeYtWoNpvD |
 | upsert_plan | https://testnet.nearblocks.io/txns/7nYrj1ECqyxWQXRJTL6a7iXcfdVq6mT81FbFYYN7wuSg |
 
-## Built during the hackathon
+## Build timeline
 
 Every commit in this repository is dated **6–7 Nov 2026**. The first is `c4a4051` (2026-11-06 14:02 +0700, “Nearly — NEAR wallet…”). The hackathon window used here is the 1 Nov 2026 announcement through 14 Nov 2026 23:59 UTC. Nothing in `git log` predates 1 Nov. The agent-policy contract landed the same day in `972b9d9`, before the rebrand commit `9f9c61c`. There is no vendored pre-hackathon contract; the wasm in `contracts/agent-policy/res/` was built from `contracts/agent-policy/src/lib.rs`.
 
@@ -72,7 +72,7 @@ What stops a drain is the contract plus the key, not the prompt. See the threat 
 
 ## Roadmap
 
-The hackathon build stays on **NEAR testnet** so judges can click through it with no real funds and no custody of user money.
+The hackathon build stays on **NEAR testnet** so anyone can try it with no real funds and no custody of user money.
 
 Production, after the hackathon:
 
@@ -152,7 +152,7 @@ The JSON file is `{ "account_id", "private_key" }`. Default contract is `nearly-
 
 See `.env.example`. `NEXT_PUBLIC_PRIVY_APP_ID` is a publishable id. Secrets (`XENDIT_SECRET_KEY`, `NEAR_PRIVATE_KEY`, AI keys, 0xramp) stay server-side or in the shell for the demo script.
 
-### Judge walkthrough (~2 min)
+### Quick walkthrough (~2 min)
 
 1. `/` → **Sign in** → **Try demo**.
 2. `/home` → USDC plus a local estimate. Settings → Thailand or Worldwide USD.
