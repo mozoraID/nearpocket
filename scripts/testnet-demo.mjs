@@ -21,7 +21,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Account, JsonRpcProvider, KeyPair } from "near-api-js";
+import { Account, JsonRpcProvider, KeyPair, actions } from "near-api-js";
 
 const RPC = "https://rpc.testnet.near.org";
 const EXPLORER = "https://testnet.nearblocks.io";
@@ -53,9 +53,29 @@ function assertTestnetOnly() {
   }
 }
 
+function isTxHash(value) {
+  return typeof value === "string" && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(value);
+}
+
 function txLink(result) {
-  const hash = result?.transaction?.hash || result?.txHash;
-  return hash ? `${EXPLORER}/txns/${hash}` : null;
+  const hash = result?.transaction?.hash || result?.transaction_outcome?.id || result?.txHash;
+  return isTxHash(hash) ? `${EXPLORER}/txns/${hash}` : null;
+}
+
+function txLinkFromError(error) {
+  const result = error?.transactionResult;
+  const candidates = [
+    error?.txHash,
+    error?.transaction?.hash,
+    result?.transaction?.hash,
+    result?.transaction_outcome?.id,
+    error?.cause?.txHash,
+    error?.cause?.transactionResult?.transaction?.hash,
+  ];
+  for (const hash of candidates) {
+    if (isTxHash(hash)) return `${EXPLORER}/txns/${hash}`;
+  }
+  return null;
 }
 
 function decodeStatus(result) {
@@ -83,21 +103,32 @@ function printStep(name, result) {
   const value = typeof result.value === "string" ? result.value : JSON.stringify(result.value);
   console.log(`${label}  ${name}: ${value}`);
   if (result.link) console.log(`     ${result.link}`);
+  else if (result.preBroadcast) {
+    console.log("     rejected before broadcast (RPC simulation). No transaction hash.");
+  }
 }
 
 async function call(account, contractId, methodName, args) {
   try {
-    const result = await account.callFunctionRaw({
-      contractId,
-      methodName,
-      args,
-      gas: 80_000_000_000_000n,
+    // throwOnFailure: false keeps the outcome when the contract panics, so the
+    // transaction hash is still available. A throw means the RPC rejected the
+    // transaction before it returned an included outcome.
+    const result = await account.signAndSendTransaction({
+      receiverId: contractId,
+      actions: [actions.functionCall(methodName, args, 80_000_000_000_000n, 0n)],
       waitUntil: "EXECUTED",
+      throwOnFailure: false,
     });
     return { ...decodeStatus(result), link: txLink(result) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, value: message.slice(0, 500), link: txLink(error), threw: true };
+    const link = txLinkFromError(error);
+    return {
+      ok: false,
+      value: message.slice(0, 500),
+      link,
+      preBroadcast: !link,
+    };
   }
 }
 

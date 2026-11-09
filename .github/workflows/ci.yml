@@ -15,6 +15,8 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - name: Pin npm 10
+        run: npm install -g npm@10
       - name: Install
         run: npm ci
       - name: Lint

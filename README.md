@@ -37,13 +37,15 @@ The contract account `nearly-7b1462.testnet` and the old Vercel alias `nearly-bl
 
 ## On-chain proof
 
-Run `npm run testnet:demo` locally against testnet and paste the explorer links in this table. This PR does not add them: the script was not executed here. The signer must be the contract owner (`nearly-7b1462.testnet` on the deployed contract). `nearpocket.testnet` is not that owner.
+Signed as `nearly-7b1462.testnet` (the contract owner) against `nearly-7b1462.testnet`. Policy at the time of the run: daily limit 75 USDC, per-item max 30 USDC, approval required.
 
-| Step | Explorer |
+| Step | Result |
 | --- | --- |
-| request_spend within limit | <!-- paste https://testnet.nearblocks.io/txns/... --> |
-| approve_spend | <!-- paste https://testnet.nearblocks.io/txns/... --> |
-| request_spend over limit (rejected) | <!-- paste https://testnet.nearblocks.io/txns/... --> |
+| queue_item within limit (1 USDC) | https://testnet.nearblocks.io/txns/CRQ7jCiqC7kfwFgZKjypHnpEAZrJRKAbo6Md9j76uVZo |
+| queue_item over-limit item | https://testnet.nearblocks.io/txns/JoEUNyzqoQPhHC8wt8F3mNma4Bhqx6sES68cc8GGD7X |
+| request_spend within limit | `awaiting_approval` — https://testnet.nearblocks.io/txns/55PR1ZeQ9v4Sm8Lt4tPUXQuAfS7KzxQABc9uGyqSotKm |
+| approve_spend | https://testnet.nearblocks.io/txns/AyrVyKmo6HYhqCXCidM8XrrVjd5qGoSyb5NeYeTGdskB |
+| request_spend over per-item limit (30.000001 USDC) | Rejected. Contract panicked at `src/lib.rs:160`: `over per-item max`. The script did not receive a transaction hash for this call. |
 
 Earlier testnet transactions from the original deploy (6 Nov 2026), already on-chain:
 
