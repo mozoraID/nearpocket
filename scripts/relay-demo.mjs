@@ -114,7 +114,7 @@ async function signedGetPolicy(sender, contract) {
     accountId: sender.accountId,
     publicKey: keyPair.getPublicKey(),
   });
-  const block = await provider.block({ finality: "final" });
+  const block = await provider.viewBlock({ finality: "final" });
   const delegate = buildDelegateAction({
     senderId: sender.accountId,
     receiverId: contract,

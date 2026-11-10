@@ -68,7 +68,7 @@ interface NearRuntime {
   };
   KeyPairSigner: { fromSecretKey: (encoded: string) => { signDelegateAction: (action: unknown) => Promise<{ signedDelegate: unknown }> } };
   JsonRpcProvider: new (config: { url: string }) => {
-    block: (query: { finality: "final" }) => Promise<{ header: { height: number } }>;
+    viewBlock: (query: { finality: "final" }) => Promise<{ header: { height: number } }>;
     viewAccessKey: (args: { accountId: string; publicKey: unknown }) => Promise<{ nonce: number }>;
   };
   buildDelegateAction: (args: {
@@ -251,7 +251,7 @@ async function signWithWallet(
   try {
     const nonce = await accessKeyNonce(provider, accountId, publicKey);
     if (nonce == null) return null;
-    const block = await provider.block({ finality: "final" });
+    const block = await provider.viewBlock({ finality: "final" });
     const delegate = near.buildDelegateAction({
       senderId: accountId,
       receiverId,
@@ -297,7 +297,7 @@ async function signWithLocalKey(
     nonce = await accessKeyNonce(provider, accountId, keyPair.getPublicKey());
     if (nonce == null) return null;
   }
-  const block = await provider.block({ finality: "final" });
+  const block = await provider.viewBlock({ finality: "final" });
   return buildSignedDelegate(near, {
     accountId,
     receiverId,
