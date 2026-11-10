@@ -42,7 +42,7 @@ export const th: Dict = {
   "pay.upload": "อัปโหลด QR",
   "pay.paste": "วางโค้ด",
   "pay.worldwide": "จ่ายทั่วโลก",
-  "pay.worldwideHint": "NearPocket Card · บัตรเดบิตเสมือน",
+  "pay.worldwideHint": "NearPocket Card · บัตรเดบิตเสมือน (เดโม)",
   "pay.merchant": "รับเงินในฐานะร้านค้า",
   "pay.merchantHint": "แสดง QR ของคุณ",
   "pay.pasteTitle": "วางโค้ด QR",
@@ -196,7 +196,7 @@ export const th: Dict = {
 
   "landing.badge": "NEAR Hackathon · เดโม testnet",
   "landing.heroTitle": "จ่ายได้ทุกที่ด้วย NEAR",
-  "landing.heroSub": "สแกน QR ในเอเชีย จ่ายทั่วโลกด้วย NearPocket Card (USD) ช้อปมาร์เก็ตเพลสที่เชื่อมต่อ และให้เอเจนต์ช้อปรอการยืนยันจากคุณ ถือครองเองบน NEAR testnet",
+  "landing.heroSub": "สแกน QR ในเอเชีย จ่ายทั่วโลกด้วย NearPocket Card (USD, เดโม) ช้อปมาร์เก็ตเพลสที่เชื่อมต่อ และให้เอเจนต์ช้อปรอการยืนยันจากคุณ ถือครองเองบน NEAR testnet",
   "landing.ctaLaunch": "เปิดแอป",
   "landing.ctaSignIn": "เข้าสู่ระบบ",
   "landing.ctaOpenApp": "เปิดแอป",

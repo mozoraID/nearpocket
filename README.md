@@ -26,6 +26,7 @@ Screenshots: [landing](docs/screenshots/landing.png) · [home](docs/screenshots/
 | Marketplace search | Amazon via DummyJSON when reachable; other shops **mocked**, with real search URLs, labeled |
 | Xendit QRIS | **Real Test Mode** only when `XENDIT_SECRET_KEY` is set. If Xendit or 0xramp is unreachable (network or HTTP 5xx), settlement **falls back to the labeled mock**. A 4xx stays a failed receipt |
 | NearPocket Card / top-up | **Demo** virtual card. Intents quotes are real |
+| 0xramp off-ramp adapter | **Optional, off by default.** Staging adapter only, used when `ZEROXRAMP_*` is set. The live demo does not set it |
 | Wallet login | Meteor / HOT / Intear / NEAR Mobile · in-browser seed · Privy Google · **Demo** |
 | QRIS, PromptPay, DuitNow, card | Highlighted flows (parser real; fiat settlement is sandbox / demo) |
 | PayNow, JPQR, Korea QR | EMVCo parse is real. Settlement is demo |

@@ -42,7 +42,7 @@ export const ja: Dict = {
   "pay.upload": "QRをアップロード",
   "pay.paste": "コードを貼り付け",
   "pay.worldwide": "世界中で支払う",
-  "pay.worldwideHint": "NearPocket Card · バーチャルデビット",
+  "pay.worldwideHint": "NearPocket Card · バーチャルデビット（デモ）",
   "pay.merchant": "加盟店として受け取る",
   "pay.merchantHint": "自分のQRを表示",
   "pay.pasteTitle": "QRコードを貼り付け",
@@ -196,7 +196,7 @@ export const ja: Dict = {
 
   "landing.badge": "NEAR Hackathon · testnetデモ",
   "landing.heroTitle": "NEARで、どこでも支払う",
-  "landing.heroSub": "アジア各地のQRをスキャンし、NearPocket Card（USD）で世界中に支払い、接続したマーケットプレイスで買い物。ショッピングエージェントはあなたの承認を待ちます。自己管理、NEAR testnet。",
+  "landing.heroSub": "アジア各地のQRをスキャンし、NearPocket Card（USD・デモ）で世界中に支払い、接続したマーケットプレイスで買い物。ショッピングエージェントはあなたの承認を待ちます。自己管理、NEAR testnet。",
   "landing.ctaLaunch": "アプリを開く",
   "landing.ctaSignIn": "サインイン",
   "landing.ctaOpenApp": "アプリを開く",

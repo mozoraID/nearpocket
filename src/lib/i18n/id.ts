@@ -42,7 +42,7 @@ export const id: Dict = {
   "pay.upload": "Unggah QR",
   "pay.paste": "Tempel kode",
   "pay.worldwide": "Bayar ke seluruh dunia",
-  "pay.worldwideHint": "NearPocket Card · kartu virtual",
+  "pay.worldwideHint": "NearPocket Card · kartu virtual (demo)",
   "pay.merchant": "Terima sebagai merchant",
   "pay.merchantHint": "Tampilkan QR tokomu",
   "pay.pasteTitle": "Tempel kode QR",
@@ -197,7 +197,7 @@ export const id: Dict = {
 
   "landing.badge": "NEAR Hackathon · demo testnet",
   "landing.heroTitle": "Bayar di mana saja dengan NEAR",
-  "landing.heroSub": "Scan QR lokal di Asia, bayar ke seluruh dunia dengan NearPocket Card (USD), belanja di marketplace terhubung — dan biarkan agen belanja menunggu OK-mu. Self-custody di NEAR testnet.",
+  "landing.heroSub": "Scan QR lokal di Asia, bayar ke seluruh dunia dengan NearPocket Card (USD, demo), belanja di marketplace terhubung — dan biarkan agen belanja menunggu OK-mu. Self-custody di NEAR testnet.",
   "landing.ctaLaunch": "Buka aplikasi",
   "landing.ctaSignIn": "Masuk",
   "landing.ctaOpenApp": "Buka aplikasi",

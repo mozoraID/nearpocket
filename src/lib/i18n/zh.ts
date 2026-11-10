@@ -42,7 +42,7 @@ export const zh: Dict = {
   "pay.upload": "上传二维码",
   "pay.paste": "粘贴代码",
   "pay.worldwide": "全球付款",
-  "pay.worldwideHint": "NearPocket Card · 虚拟借记卡",
+  "pay.worldwideHint": "NearPocket Card · 虚拟借记卡（演示）",
   "pay.merchant": "以商户身份收款",
   "pay.merchantHint": "展示您的二维码",
   "pay.pasteTitle": "粘贴二维码",
@@ -196,7 +196,7 @@ export const zh: Dict = {
 
   "landing.badge": "NEAR Hackathon · testnet 演示",
   "landing.heroTitle": "用 NEAR 随处支付",
-  "landing.heroSub": "扫描亚洲各地二维码，用 NearPocket Card（USD）全球付款，在已连接商城购物，并让购物助手等待您的确认。在 NEAR testnet 上自托管。",
+  "landing.heroSub": "扫描亚洲各地二维码，用 NearPocket Card（USD，演示）全球付款，在已连接商城购物，并让购物助手等待您的确认。在 NEAR testnet 上自托管。",
   "landing.ctaLaunch": "打开应用",
   "landing.ctaSignIn": "登录",
   "landing.ctaOpenApp": "打开应用",
