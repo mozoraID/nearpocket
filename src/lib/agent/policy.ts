@@ -52,6 +52,9 @@ export interface WaitlistItem {
   marketplace?: string;
   /** True when the source offer is synthetic demo data */
   mocked?: boolean;
+  /** Masked ship-to captured when the agent queued this purchase. */
+  shipTo?: string;
+  deliveryAddressId?: string;
 }
 
 export const DEFAULT_POLICY: SpendPolicy = {

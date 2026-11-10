@@ -72,6 +72,10 @@ export async function settle(
   req: SettlementRequest,
   adapterId?: string,
 ): Promise<SettlementReceipt> {
+  // Shop checkout is a labeled demo. Never call Xendit or 0xramp for it.
+  if (req.mode === "merchant_checkout") {
+    return mockPartnerAdapter.settle(req);
+  }
   const adapter = resolveAdapter(adapterId);
   try {
     return await adapter.settle(req);
@@ -94,6 +98,14 @@ export async function settle(
     };
   }
 }
+
+export {
+  buildMerchantCheckoutTimeline,
+  withShopOrder,
+  isRealTestnetAccount,
+  MERCHANT_CHECKOUT_COMPLIANCE,
+  formatFiatLeg,
+} from "./order-flow";
 
 export function activeSettlementBackend() {
   if (hasXenditKey()) return "xendit-sandbox";

@@ -1,6 +1,17 @@
 import type { PaymentRail } from "../qris/countries";
 import type { FxQuote } from "../fx/quote";
 
+/** Shop checkout metadata. Phone is already masked. No live partner payload. */
+export interface ShopOrderMeta {
+  shipTo: string;
+  orderId: string;
+  fiatCurrency: string;
+  fiatAmount?: number;
+  contractId: string;
+  /** Set only for a real testnet account. Absent in demo. */
+  testnetAccountId?: string;
+}
+
 export type SettlementStatus =
   | "quoted"
   | "user_signed"
@@ -23,6 +34,8 @@ export interface SettlementRequest {
   destinationRef: string;
   mode: "qris" | "card" | "link" | "merchant_checkout";
   note?: string;
+  /** Shop checkout only. Masked ship-to and demo fiat leg. No partner payload. */
+  shopOrder?: ShopOrderMeta;
 }
 
 export interface SettlementReceipt {
@@ -33,7 +46,14 @@ export interface SettlementReceipt {
   intentsQuoteId?: string;
   partnerRef?: string;
   merchantReceiptId?: string;
-  timeline: { at: string; status: SettlementStatus; detail: string }[];
+  timeline: {
+    at: string;
+    status: SettlementStatus;
+    detail: string;
+    /** i18n key. The UI prefers this over `detail`. */
+    stepKey?: string;
+    stepVars?: Record<string, string | number>;
+  }[];
   complianceNote: string;
   mocked: boolean;
 }

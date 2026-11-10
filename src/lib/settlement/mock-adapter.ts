@@ -1,3 +1,5 @@
+import { NEAR_CONFIG } from "../near/config";
+import { buildMerchantCheckoutTimeline } from "./order-flow";
 import type {
   SettlementAdapter,
   SettlementReceipt,
@@ -18,6 +20,9 @@ export const mockPartnerAdapter: SettlementAdapter = {
   id: "mock-pjp",
   label: "NearPocket Sandbox PJP (mock)",
   async settle(req: SettlementRequest): Promise<SettlementReceipt> {
+    if (req.mode === "merchant_checkout") {
+      return settleMerchantCheckout(req);
+    }
     const now = () => new Date().toISOString();
     const timeline: SettlementReceipt["timeline"] = [
       {
@@ -66,3 +71,43 @@ export const mockPartnerAdapter: SettlementAdapter = {
     };
   },
 };
+
+function settleMerchantCheckout(req: SettlementRequest): SettlementReceipt {
+  const meta = req.shopOrder;
+  const orderId = meta?.orderId || `demo.ord_${uid("ord")}`;
+  const shipTo = meta?.shipTo || "—";
+  const built = buildMerchantCheckoutTimeline({
+    usdcAmount: req.quote.totalUsdc,
+    fiatCurrency: meta?.fiatCurrency || req.localCurrency,
+    fiatAmount: meta?.fiatAmount,
+    shipTo,
+    orderId,
+    contractId: meta?.contractId || NEAR_CONFIG.agentPolicyContract,
+    testnetAccountId: meta?.testnetAccountId,
+  });
+  const shipLine = `Ship to: ${shipTo}`;
+  const note = req.note?.includes(shipLine) ? req.note : [req.note, shipLine].filter(Boolean).join(" · ");
+  return {
+    request: {
+      ...req,
+      mode: "merchant_checkout",
+      note,
+      shopOrder: {
+        shipTo,
+        orderId,
+        fiatCurrency: meta?.fiatCurrency || req.localCurrency,
+        fiatAmount: meta?.fiatAmount,
+        contractId: meta?.contractId || NEAR_CONFIG.agentPolicyContract,
+        testnetAccountId: meta?.testnetAccountId,
+      },
+    },
+    status: "mocked",
+    nearTxHash: `demo.${uid("tx")}`,
+    intentsQuoteId: uid("intent"),
+    partnerRef: uid("pjp"),
+    merchantReceiptId: orderId,
+    timeline: built.timeline,
+    complianceNote: built.complianceNote,
+    mocked: true,
+  };
+}

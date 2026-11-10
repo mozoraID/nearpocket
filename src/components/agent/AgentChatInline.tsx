@@ -5,7 +5,10 @@ import { Bot, Send } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useNearPocketStore } from "@/lib/store";
 import type { WaitlistItem } from "@/lib/agent/policy";
+import { attachSavedAddress } from "@/lib/agent/delivery";
+import { defaultAddress, formatShipTo } from "@/lib/address";
 import { metaFor } from "@/lib/marketplaces";
+import { DeliveryAddressForm } from "@/components/DeliveryAddressForm";
 
 type Msg = { role: "user" | "agent"; text: string; item?: WaitlistItem };
 
@@ -66,6 +69,8 @@ export function AgentChatInline() {
   const addWaitlist = useNearPocketStore((s) => s.addWaitlist);
   const logActivity = useNearPocketStore((s) => s.logActivity);
   const connected = useNearPocketStore((s) => s.connectedMarketplaces);
+  const addresses = useNearPocketStore((s) => s.addresses);
+  const savedAddress = defaultAddress(addresses);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -86,6 +91,14 @@ export function AgentChatInline() {
     if (!text || busy) return;
     setInput("");
     setMsgs((m) => [...m, { role: "user", text }]);
+    if (!savedAddress) {
+      setMsgs((m) => [...m, { role: "agent", text: t("agent.needAddress") }]);
+      return;
+    }
+    const delivery = {
+      shipTo: formatShipTo(savedAddress),
+      addressId: savedAddress.id,
+    };
     setBusy(true);
     try {
       const budget = parseBudgetUsdc(text) ?? 15;
@@ -97,7 +110,7 @@ export function AgentChatInline() {
         const res = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "parse", text }),
+          body: JSON.stringify({ action: "parse", text, delivery }),
         });
         if (res.ok) item = (await res.json()) as WaitlistItem;
       } catch { /* rule-based */ }
@@ -164,6 +177,13 @@ export function AgentChatInline() {
         }
       } catch { /* keep */ }
 
+      const attached = attachSavedAddress(item, delivery);
+      if (attached.needsAddress) {
+        setMsgs((m) => [...m, { role: "agent", text: t("agent.needAddress") }]);
+        return;
+      }
+      item = attached.item;
+
       addWaitlist(item);
       logActivity({
         kind: "agent",
@@ -172,18 +192,19 @@ export function AgentChatInline() {
         status: item.status,
       });
 
+      const shipLine = t("agent.attachedAddress", { address: item.shipTo || delivery.shipTo });
       const reply =
         item.status === "awaiting_approval"
           ? `${t("agent.needApprove")} ${t("agent.foundReply", {
               title: item.title,
               price: item.currentPriceUsdc.toFixed(2),
               marketplace: item.marketplace || t("agent.marketplace"),
-            })}`
+            })} ${shipLine}`
           : `${t("agent.created")} ${t("agent.watchingReply", {
               title: item.title,
               budget: item.maxBudgetUsdc ?? budget,
               deadline: item.deadline || deadline,
-            })}`;
+            })} ${shipLine}`;
 
       setMsgs((m) => [...m, { role: "agent", text: reply, item }]);
     } finally {
@@ -214,6 +235,12 @@ export function AgentChatInline() {
           </div>
         ))}
         {busy && <p className="text-xs text-warm-500">{t("agent.thinking")}</p>}
+        {!savedAddress && (
+          <div className="rounded-2xl bg-cream-50 p-3 ring-1 ring-cream-300">
+            <p className="mb-2 text-xs text-warm-600">{t("agent.needAddress")}</p>
+            <DeliveryAddressForm forceDefault />
+          </div>
+        )}
         <div ref={endRef} />
       </div>
       <form

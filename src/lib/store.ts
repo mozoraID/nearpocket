@@ -14,6 +14,12 @@ import { DEMO_ACCOUNT } from "./near/config";
 import { defaultConnectedIds, type MarketplaceId } from "./marketplaces";
 import type { DisplayCurrencyCode } from "./region/display-currency";
 import { demoWaitlistFor } from "./region/demo-seed";
+import {
+  validateDeliveryAddress,
+  type AddressDraft,
+  type AddressIssue,
+  type DeliveryAddress,
+} from "./address";
 
 /** Sample pending agent approval so Home matches the landing carousel (demo-labeled). */
 export const DEMO_WAITLIST_ITEM: WaitlistItem = {
@@ -76,7 +82,14 @@ interface NearPocketState {
   card: VirtualCard;
   /** ISO display fiat for ≈ lines + Settings (USDC remains ledger) */
   displayCurrency: DisplayCurrencyCode;
+  /** Delivery profiles. One default is reused across marketplaces. */
+  addresses: DeliveryAddress[];
   setDisplayCurrency: (c: DisplayCurrencyCode) => void;
+  saveAddress: (
+    draft: AddressDraft & { id?: string; isDefault?: boolean },
+  ) => { ok: true; address: DeliveryAddress } | { ok: false; issues: AddressIssue[] };
+  removeAddress: (id: string) => void;
+  setDefaultAddress: (id: string) => void;
   connectDemo: () => void;
   connectWallet: (accountId: string, method?: AuthMethod) => void;
   disconnect: () => void;
@@ -117,6 +130,7 @@ export const useNearPocketStore = create<NearPocketState>()(
       activity: [],
       connectedMarketplaces: defaultConnectedIds(),
       displayCurrency: "USD",
+      addresses: [],
       setDisplayCurrency: (c) => {
         set({ displayCurrency: c });
         // Refresh demo approval flavor when switching region (demo-only seed)
@@ -222,6 +236,40 @@ export const useNearPocketStore = create<NearPocketState>()(
           waitlist: [seed, ...get().waitlist].slice(0, 50),
         });
       },
+      saveAddress: (draft) => {
+        const parsed = validateDeliveryAddress(draft);
+        if (!parsed.ok) return parsed;
+        const list = get().addresses;
+        const id =
+          draft.id ||
+          `addr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const others = list.filter((a) => a.id !== id);
+        const previous = list.find((a) => a.id === id);
+        let isDefault: boolean;
+        if (others.length === 0) isDefault = true;
+        else if (draft.isDefault === true) isDefault = true;
+        else if (draft.isDefault === false) isDefault = false;
+        else if (previous) isDefault = previous.isDefault;
+        else isDefault = !others.some((a) => a.isDefault);
+        const address: DeliveryAddress = { ...parsed.value, id, isDefault };
+        const next = isDefault
+          ? [address, ...others.map((a) => ({ ...a, isDefault: false }))]
+          : [...others, address];
+        if (!next.some((a) => a.isDefault) && next[0]) next[0] = { ...next[0], isDefault: true };
+        set({ addresses: next });
+        return { ok: true, address };
+      },
+      removeAddress: (id) => {
+        const next = get().addresses.filter((a) => a.id !== id);
+        if (next.length && !next.some((a) => a.isDefault)) next[0] = { ...next[0], isDefault: true };
+        set({ addresses: next });
+      },
+      setDefaultAddress: (id) => {
+        if (!get().addresses.some((a) => a.id === id)) return;
+        set({
+          addresses: get().addresses.map((a) => ({ ...a, isDefault: a.id === id })),
+        });
+      },
       topUpCard: (amountUsdc) => {
         const st = get();
         if (amountUsdc <= 0 || amountUsdc > st.balanceUsdc) return;
@@ -246,6 +294,7 @@ export const useNearPocketStore = create<NearPocketState>()(
         connectedMarketplaces: s.connectedMarketplaces,
         card: s.card,
         displayCurrency: s.displayCurrency,
+        addresses: s.addresses,
       }),
     },
   ),
