@@ -42,7 +42,7 @@ export const ko: Dict = {
   "pay.upload": "QR 업로드",
   "pay.paste": "코드 붙여넣기",
   "pay.worldwide": "전 세계에서 결제",
-  "pay.worldwideHint": "NearPocket Card · 가상 직불카드",
+  "pay.worldwideHint": "NearPocket Card · 가상 직불카드 (데모)",
   "pay.merchant": "가맹점으로 받기",
   "pay.merchantHint": "내 QR 보여주기",
   "pay.pasteTitle": "QR 코드 붙여넣기",
@@ -196,7 +196,7 @@ export const ko: Dict = {
 
   "landing.badge": "NEAR Hackathon · testnet 데모",
   "landing.heroTitle": "NEAR로 어디서나 결제",
-  "landing.heroSub": "아시아의 로컬 QR을 스캔하고, NearPocket Card(USD)로 전 세계에서 결제하고, 연결한 마켓플레이스에서 쇼핑하세요. 쇼핑 에이전트는 승인을 기다립니다. NEAR testnet에서 셀프 커스터디.",
+  "landing.heroSub": "아시아의 로컬 QR을 스캔하고, NearPocket Card(USD, 데모)로 전 세계에서 결제하고, 연결한 마켓플레이스에서 쇼핑하세요. 쇼핑 에이전트는 승인을 기다립니다. NEAR testnet에서 셀프 커스터디.",
   "landing.ctaLaunch": "앱 열기",
   "landing.ctaSignIn": "로그인",
   "landing.ctaOpenApp": "앱 열기",

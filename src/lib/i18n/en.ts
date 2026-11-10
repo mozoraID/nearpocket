@@ -40,7 +40,7 @@ export const en = {
   "pay.upload": "Upload QR",
   "pay.paste": "Paste code",
   "pay.worldwide": "Pay worldwide",
-  "pay.worldwideHint": "NearPocket Card · virtual debit",
+  "pay.worldwideHint": "NearPocket Card · virtual debit (demo)",
   "pay.merchant": "Receive as a merchant",
   "pay.merchantHint": "Show your own QR",
   "pay.pasteTitle": "Paste a QR code",
@@ -196,7 +196,7 @@ export const en = {
 
   "landing.badge": "NEAR Hackathon · testnet demo",
   "landing.heroTitle": "Pay anywhere with NEAR",
-  "landing.heroSub": "Scan local QR rails across Asia, pay worldwide with NearPocket Card (USD), shop connected marketplaces — and let a shopping agent wait for your OK. Self-custody on NEAR testnet.",
+  "landing.heroSub": "Scan local QR rails across Asia, pay worldwide with NearPocket Card (USD, demo), shop connected marketplaces — and let a shopping agent wait for your OK. Self-custody on NEAR testnet.",
   "landing.ctaLaunch": "Launch app",
   "landing.ctaSignIn": "Sign in",
   "landing.ctaOpenApp": "Open app",
