@@ -30,10 +30,26 @@ Screenshots: [landing](docs/screenshots/landing.png) · [home](docs/screenshots/
 | QRIS, PromptPay, DuitNow, card | Highlighted flows (parser real; fiat settlement is sandbox / demo) |
 | PayNow, JPQR, Korea QR | EMVCo parse is real. Settlement is demo |
 | More rails (demo): QR Ph, VietQR, UPI (PH / VN / IN) | **Demo** corridors. Grouped that way on the landing page |
+| Saved delivery address | **Demo** profile on this device. One default address is reused across marketplaces. Receipts mask the phone |
+| Shop order receipt | **Demo** money path for marketplace checkout. No live off-ramp and no marketplace charge. See Shop order flow |
 
 Crypto is not sent to merchants. That is a compliance choice (BI/OJK in Indonesia and the same idea elsewhere): production is user USDC on NEAR, then a licensed partner pays local fiat.
 
 The contract account `nearly-7b1462.testnet` and the old Vercel alias `nearly-blue.vercel.app` still say **Nearly** because the project was renamed to NearPocket during the hackathon; a deployed NEAR account id cannot be renamed.
+
+## Shop order flow
+
+Shop checkout (`merchant_checkout`) writes a labeled demo receipt. It does not send crypto to the marketplace, does not broadcast a NEAR Intents swap, and does not call a payout partner.
+
+1. USDC is shown as locked pending approval. With a real NEAR testnet account connected, that step names `request_spend` and `approve_spend` on the agent-policy contract. In demo mode the same step says no testnet transaction was sent.
+2. You approve the purchase.
+3. USDC is shown as sent to a licensed off-ramp partner (demo) and converted into the display currency, such as IDR (demo).
+4. Marketplace checkout is shown as paid by virtual account or QRIS (demo). The marketplace's own buyer protection holds those funds until delivery.
+5. The receipt shows a demo order id and the saved ship-to address.
+
+NEAR Intents only swaps tokens. The fiat leg is a licensed partner. Refunds in local currency through that partner are planned, not live. When the settlement record includes a NEAR transaction hash or a quote id, the receipt still shows them. In this demo those references are labeled demo.
+
+A delivery address (name, phone, street, city, province or state, postal code, country, and an optional note) is saved in Settings and reused on every marketplace. Shop will not complete a buy, and the agent will not queue a purchase, until one exists.
 
 ## On-chain proof
 
@@ -130,7 +146,7 @@ npm run dev
 Open http://localhost:3000. `npm test` and `npm run build` also pass with an empty environment. Google login stays off until `NEXT_PUBLIC_PRIVY_APP_ID` is set. `XENDIT_SECRET_KEY` is server-only; it is not a `NEXT_PUBLIC_` variable.
 
 ```bash
-npm test                 # EMVCo/QRIS, 378 i18n keys × 7 locales, Intents gate
+npm test                 # EMVCo/QRIS, 419 i18n keys × 7 locales, Intents gate, shop order receipt
 npm run test:contract    # agent-policy unit tests (Rust 1.85+)
 npm run lint
 npm run build
@@ -169,9 +185,9 @@ See `.env.example`. `NEXT_PUBLIC_PRIVY_APP_ID` is a publishable id. Secrets (`XE
 | `/login` | Create wallet · Connect NEAR · Google/Privy · Try demo |
 | `/home` | USDC balance · Scan & Pay · Top up · Shop · agent approvals |
 | `/pay` | Camera / upload / paste / sample QR → confirm → settle |
-| `/shop` | Marketplaces · Buy now / Ask agent · limits |
+| `/shop` | Marketplaces · saved ship-to · Buy now / Ask agent · order receipt · limits |
 | `/activity` | Payments, purchases, card, top-ups, agent actions |
-| `/settings` | Language · home country / display currency · FX table · Sign out |
+| `/settings` | Language · home country / display currency · delivery address · FX table · Sign out |
 
 `/belanja` → `/shop`, `/aktivitas` → `/activity`, `/app` → `/home`.
 

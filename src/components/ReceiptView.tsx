@@ -48,6 +48,13 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
           v={receipt.mocked ? t("receipt.mockPartner") : t("receipt.xendit")}
         />
         {receipt.partnerRef && <Row k={t("receipt.partnerRef")} v={<span className="font-mono text-xs">{receipt.partnerRef}</span>} />}
+        {r.shopOrder?.orderId && (
+          <Row k={t("receipt.orderId")} v={<span className="font-mono text-xs">{r.shopOrder.orderId}</span>} />
+        )}
+        {r.shopOrder?.shipTo && <Row k={t("receipt.shipTo")} v={r.shopOrder.shipTo} />}
+        {receipt.intentsQuoteId && (
+          <Row k={t("receipt.quoteId")} v={<span className="font-mono text-xs">{receipt.intentsQuoteId}</span>} />
+        )}
         {receipt.nearTxHash && (
           <Row
             k={t("receipt.nearTx")}
@@ -76,7 +83,43 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
           }
         />
       </div>
-      <p className="text-xs leading-relaxed text-warm-500">{receipt.complianceNote}</p>
+      {r.mode === "merchant_checkout" && receipt.timeline.length > 0 && (
+        <ol className="space-y-3 border-t border-cream-300 pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-warm-500">
+            {t("receipt.orderFlow")} · {t("common.demo")}
+          </p>
+          {receipt.timeline.map((ev, i) => (
+            <li key={`${ev.at}-${i}`} className="flex gap-3 text-sm">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-cream-100">
+                {i + 1}
+              </span>
+              <span className="min-w-0">
+                <time className="block text-[11px] text-warm-500" dateTime={ev.at}>
+                  {formatStepTime(ev.at)}
+                </time>
+                <span className="block leading-snug">
+                  {ev.stepKey ? t(ev.stepKey, ev.stepVars) : ev.detail}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="text-xs leading-relaxed text-warm-500">
+        {r.mode === "merchant_checkout" ? t("receipt.intentsNote") : receipt.complianceNote}
+      </p>
     </div>
   );
+}
+
+function formatStepTime(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }

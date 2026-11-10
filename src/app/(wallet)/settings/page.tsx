@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
+import { DeliveryAddressForm } from "@/components/DeliveryAddressForm";
+import { formatShipTo, type DeliveryAddress } from "@/lib/address";
 import { TopBar } from "@/components/TopBar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -26,6 +28,10 @@ export default function SettingsPage() {
   const authMethod = useNearPocketStore((s) => s.authMethod);
   const displayCurrency = useNearPocketStore((s) => s.displayCurrency);
   const setDisplayCurrency = useNearPocketStore((s) => s.setDisplayCurrency);
+  const addresses = useNearPocketStore((s) => s.addresses);
+  const removeAddress = useNearPocketStore((s) => s.removeAddress);
+  const setDefaultAddress = useNearPocketStore((s) => s.setDefaultAddress);
+  const [editing, setEditing] = useState<DeliveryAddress | "new" | null>(null);
   const [rows, setRows] = useState<FxTableRow[] | null>(null);
   const [fxError, setFxError] = useState<string | null>(null);
 
@@ -65,6 +71,54 @@ export default function SettingsPage() {
           </span>
           <LanguageSwitcher />
         </div>
+      </section>
+
+      <section className="card space-y-3">
+        <div>
+          <h2 className="font-semibold">{t("address.title")}</h2>
+          <p className="mt-1 text-sm text-warm-600">{t("address.hint")}</p>
+        </div>
+        {addresses.length === 0 && !editing && (
+          <p className="text-sm text-warm-600">{t("address.empty")}</p>
+        )}
+        <div className="space-y-2">
+          {addresses.map((a) => (
+            <div key={a.id} className="rounded-2xl bg-cream-200 px-3 py-3 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium">{formatShipTo(a)}</p>
+                {a.isDefault ? (
+                  <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase text-cream-100">
+                    {t("address.defaultBadge")}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" className="text-xs font-semibold underline" onClick={() => setEditing(a)}>
+                  {t("address.edit")}
+                </button>
+                {!a.isDefault && (
+                  <button type="button" className="text-xs font-semibold underline" onClick={() => setDefaultAddress(a.id)}>
+                    {t("address.setDefault")}
+                  </button>
+                )}
+                <button type="button" className="text-xs font-semibold underline" onClick={() => removeAddress(a.id)}>
+                  {t("address.remove")}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {editing ? (
+          <DeliveryAddressForm
+            initial={editing === "new" ? null : editing}
+            forceDefault={addresses.length === 0 || (editing !== "new" && editing.isDefault && addresses.length === 1)}
+            onSaved={() => setEditing(null)}
+          />
+        ) : (
+          <button type="button" className="btn-secondary w-full" onClick={() => setEditing("new")}>
+            {t("address.add")}
+          </button>
+        )}
       </section>
 
       <section className="card space-y-3">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseUserIntent, evaluateWaitlistItem, simulatePriceTick } from "@/lib/agent/rules";
+import { attachSavedAddress } from "@/lib/agent/delivery";
 import type { WaitlistItem } from "@/lib/agent/policy";
 
 /**
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
       agentReason,
       notes: String(body.text || ""),
     };
-    return NextResponse.json(item);
+    const attached = attachSavedAddress(item, body.delivery);
+    return NextResponse.json({ ...attached.item, needsAddress: attached.needsAddress });
   }
 
   if (action === "tick") {

@@ -7,6 +7,7 @@ import { TopBar } from "@/components/TopBar";
 import { TopUpSheet } from "@/components/TopUpSheet";
 import { ActivityRow } from "@/components/ActivityList";
 import { useNearPocketStore } from "@/lib/store";
+import { AddressRequiredError, defaultAddress, formatShipTo } from "@/lib/address";
 import { approveWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
 import { useT } from "@/lib/i18n";
 import { useDisplayFx } from "@/hooks/useDisplayFx";
@@ -17,11 +18,15 @@ export default function HomePage() {
   const waitlist = useNearPocketStore((s) => s.waitlist);
   const ensureDemoWaitlist = useNearPocketStore((s) => s.ensureDemoWaitlist);
   const activity = useNearPocketStore((s) => s.activity);
+  const addresses = useNearPocketStore((s) => s.addresses);
   const { localFromUsdc, rateLine, meta } = useDisplayFx();
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const savedAddress = mounted ? defaultAddress(addresses) : null;
+  const shipLine = savedAddress ? formatShipTo(savedAddress) : "";
+  const hasAddress = Boolean(savedAddress);
 
   useEffect(() => {
     setMounted(true);
@@ -42,7 +47,7 @@ export default function HomePage() {
       await approveWaitlistItem(item);
       setMsg(t("home.bought", { title: item.title }));
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : t("home.approveFailed"));
+      setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("home.approveFailed"));
     } finally {
       setBusyId(null);
     }
@@ -69,12 +74,27 @@ export default function HomePage() {
                 {w.currentPriceUsdc.toFixed(2)} USDC · {w.marketplace || w.merchant}
                 {w.maxBudgetUsdc ? ` · ${t("home.budgetPart", { amount: w.maxBudgetUsdc })}` : ""}
               </p>
+              <p className="mt-1 text-xs text-cream-300">
+                {hasAddress ? t("shop.shipTo", { address: shipLine }) : t("shop.needAddress")}
+                {!hasAddress && (
+                  <>
+                    {" "}
+                    <Link href="/settings" className="underline">{t("address.title")}</Link>
+                  </>
+                )}
+              </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   className="h-11 rounded-full bg-cream-100 font-semibold text-ink disabled:opacity-40"
-                  disabled={busyId === w.id}
-                  onClick={() => approve(w.id)}
+                  disabled={busyId === w.id || !hasAddress}
+                  onClick={() => {
+                    if (!hasAddress) {
+                      setMsg(t("shop.needAddress"));
+                      return;
+                    }
+                    approve(w.id);
+                  }}
                 >
                   {busyId === w.id ? t("home.paying") : t("home.approve")}
                 </button>
@@ -88,7 +108,16 @@ export default function HomePage() {
               </div>
             </div>
           ))}
-          {msg && <p className="px-1 text-sm text-warm-600">{msg}</p>}
+          {msg && (
+            <p className="px-1 text-sm text-warm-600">
+              {msg}{" "}
+              {!hasAddress && (
+                <Link href="/settings" className="underline">
+                  {t("address.title")}
+                </Link>
+              )}
+            </p>
+          )}
         </section>
       )}
 

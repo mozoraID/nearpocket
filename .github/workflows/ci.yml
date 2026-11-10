@@ -21,7 +21,7 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Test (QRIS/EMVCo, i18n, Intents gate)
+      - name: Test (QRIS/EMVCo, i18n, Intents gate, shop order)
         run: npm test
       - name: Build with no env vars
         run: npm run build

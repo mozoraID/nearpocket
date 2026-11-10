@@ -1,10 +1,12 @@
 "use client";
 
+import { AddressRequiredError, defaultAddress } from "@/lib/address";
 import { checkSpend, type WaitlistItem } from "@/lib/agent/policy";
 import { buildCardSettlement } from "@/lib/settlement";
 import type { FxQuote } from "@/lib/fx/quote";
 import { useNearPocketStore } from "@/lib/store";
 import { settleAndRecord } from "./pay";
+import { decorateShopCheckout } from "./shop-order";
 
 /** User approves an agent-found item: policy check → settle → mark purchased. */
 export async function approveWaitlistItem(item: WaitlistItem) {
@@ -14,6 +16,8 @@ export async function approveWaitlistItem(item: WaitlistItem) {
   if (!check.ok) throw new Error(check.reason);
   if (item.maxBudgetUsdc && price > item.maxBudgetUsdc) throw new Error("Price is above your budget.");
   if (price > st.balanceUsdc) throw new Error("Not enough USDC. Top up first.");
+  const address = defaultAddress(st.addresses);
+  if (!address) throw new AddressRequiredError();
   const fx = (await (await fetch(`/api/fx?currency=USD&amount=${price}`)).json()) as FxQuote;
   const req = buildCardSettlement({
     merchantName: item.merchant,
@@ -22,7 +26,8 @@ export async function approveWaitlistItem(item: WaitlistItem) {
     destination: item.url || `agent_waitlist:${item.id}`,
   });
   req.note = `Agent purchase after user approval. Policy: daily ${st.policy.dailyLimitUsdc}, per-item ${st.policy.perItemMaxUsdc} USDC.`;
-  const receipt = await settleAndRecord(req, { kind: "purchase", title: item.title, countTowardAgentPolicy: true });
+  const checkout = await decorateShopCheckout(req, address);
+  const receipt = await settleAndRecord(checkout, { kind: "purchase", title: item.title, countTowardAgentPolicy: true });
   st.updateWaitlist(item.id, {
     status: receipt.status === "failed" ? "awaiting_approval" : "purchased",
     agentReason:

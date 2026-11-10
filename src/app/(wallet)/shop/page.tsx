@@ -19,6 +19,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ReceiptView } from "@/components/ReceiptView";
 import { MarketplaceMark } from "@/components/MarketplaceMark";
 import { useNearPocketStore } from "@/lib/store";
+import { AddressRequiredError, defaultAddress, formatShipTo } from "@/lib/address";
+import { attachSavedAddress } from "@/lib/agent/delivery";
+import { decorateShopCheckout } from "@/lib/client/shop-order";
+import { DeliveryAddressForm } from "@/components/DeliveryAddressForm";
 import { useDisplayFx } from "@/hooks/useDisplayFx";
 import { marketplaceCountryFor } from "@/lib/region/display-currency";
 import type { MarketplaceOffer } from "@/lib/marketplaces/types";
@@ -67,6 +71,7 @@ export default function ShopPage() {
   const toggleMarketplace = useNearPocketStore((s) => s.toggleMarketplace);
   const demoMode = useNearPocketStore((s) => s.demoMode);
   const accountId = useNearPocketStore((s) => s.accountId);
+  const addresses = useNearPocketStore((s) => s.addresses);
 
   const [mounted, setMounted] = useState(false);
   const [query, setQuery] = useState("");
@@ -75,6 +80,8 @@ export default function ShopPage() {
   const [searching, setSearching] = useState(false);
   const [chain, setChain] = useState<ChainInfo | null>(null);
   const { localFromUsdc, displayCurrency } = useDisplayFx();
+  const shipAddress = mounted ? defaultAddress(addresses) : null;
+  const shipLine = shipAddress ? formatShipTo(shipAddress) : "";
 
   const [askFor, setAskFor] = useState<{ title: string; offer?: MarketplaceOffer } | null>(null);
   const [budget, setBudget] = useState("");
@@ -89,6 +96,7 @@ export default function ShopPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [policyMsg, setPolicyMsg] = useState<string | null>(null);
+  const [addressOpen, setAddressOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -133,6 +141,10 @@ export default function ShopPage() {
     if (!askFor) return;
     const max = parseFloat(budget);
     if (!max || max <= 0) return;
+    if (!shipAddress) {
+      setMsg(t("shop.needAddress"));
+      return;
+    }
     const best = askFor.offer || offers?.[0];
     const current = best?.priceUsdc ?? max * 1.2;
     const within = current <= max;
@@ -156,10 +168,14 @@ export default function ShopPage() {
         ? t("shop.reasonWithin", { price: current.toFixed(2), budget: max })
         : t("shop.reasonWatch", { price: current.toFixed(2), budget: max }),
     };
-    addWaitlist(item);
+    const queued = attachSavedAddress(item, {
+      shipTo: formatShipTo(shipAddress),
+      addressId: shipAddress.id,
+    }).item;
+    addWaitlist(queued);
     logActivity({
       kind: "agent",
-      title: t("shop.watchingTitle", { title: item.title }),
+      title: t("shop.watchingTitle", { title: queued.title }),
       detail: t("shop.watchingDetail", { budget: max, deadline }),
       status: item.status,
     });
@@ -170,6 +186,10 @@ export default function ShopPage() {
 
   async function confirmBuy() {
     if (!buyOffer) return;
+    if (!shipAddress) {
+      setMsg(t("shop.needAddress"));
+      return;
+    }
     setBusy("buy");
     try {
       if (buyOffer.priceUsdc > balanceUsdc) throw new Error(t("shop.notEnough"));
@@ -181,9 +201,9 @@ export default function ShopPage() {
         quote: fx,
         destination: buyOffer.productUrl || buyOffer.url,
       });
-      req.mode = "merchant_checkout";
       req.note = "Buy now from NearPocket Shop.";
-      const r = await settleAndRecord(req, {
+      const checkout = await decorateShopCheckout(req, shipAddress);
+      const r = await settleAndRecord(checkout, {
         kind: "purchase",
         title: buyOffer.title.split(" · ")[0],
         countTowardAgentPolicy: true,
@@ -203,7 +223,7 @@ export default function ShopPage() {
     try {
       await fn();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : t("shop.errorGeneric"));
+      setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("shop.errorGeneric"));
     } finally {
       setBusy(null);
     }
@@ -398,9 +418,17 @@ export default function ShopPage() {
                   <span className="text-warm-600">{t("shop.budgetAmount", { amount: (w.maxBudgetUsdc ?? w.targetPriceUsdc).toFixed(2) })}</span>
                 </div>
                 {w.agentReason && <p className="mt-2 text-xs text-warm-600">{w.agentReason}</p>}
+                <p className="mt-2 text-xs text-warm-600">
+                  {shipLine ? t("shop.shipTo", { address: shipLine }) : t("shop.needAddress")}
+                </p>
                 <div className="mt-3 flex gap-2">
                   {w.status === "awaiting_approval" || w.status === "ready" ? (
                     <>
+                      {!shipAddress ? (
+                        <button type="button" className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100" onClick={() => setAddressOpen(true)}>
+                          {t("address.add")}
+                        </button>
+                      ) : (
                       <button
                         type="button"
                         className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100 disabled:opacity-40"
@@ -409,6 +437,7 @@ export default function ShopPage() {
                       >
                         {busy === w.id ? t("home.paying") : `${t("home.approve")} ${w.currentPriceUsdc.toFixed(2)}`}
                       </button>
+                      )}
                       <button type="button" className="btn-outline !min-h-11 flex-1" onClick={() => rejectWaitlistItem(w)}>
                         {t("home.reject")}
                       </button>
@@ -492,6 +521,17 @@ export default function ShopPage() {
             <div className="rounded-2xl bg-cream-200 p-4">
               <p className="font-semibold">{askFor.title}</p>
             </div>
+            {shipAddress ? (
+              <p className="text-sm text-warm-600">
+                {t("shop.shipTo", { address: shipLine })}
+                <span className="mt-1 block text-xs">{t("shop.addressReused")}</span>
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-warm-600">{t("shop.needAddress")}</p>
+                <DeliveryAddressForm forceDefault />
+              </div>
+            )}
             <label className="block space-y-1.5">
               <span className="text-sm text-warm-600">{t("shop.maxBudget")}</span>
               <input className="input text-xl font-semibold" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} />
@@ -500,7 +540,7 @@ export default function ShopPage() {
               <span className="text-sm text-warm-600">{t("shop.stopAfter")}</span>
               <input className="input" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
             </label>
-            <button type="button" className="btn-primary w-full" disabled={!(parseFloat(budget) > 0)} onClick={submitAsk}>
+            <button type="button" className="btn-primary w-full" disabled={!(parseFloat(budget) > 0) || !shipAddress} onClick={submitAsk}>
               {t("shop.startWatching")}
             </button>
           </div>
@@ -514,7 +554,18 @@ export default function ShopPage() {
               <p className="font-semibold">{buyOffer.title}</p>
               <p className="mt-3 text-3xl font-bold">{buyOffer.priceUsdc.toFixed(2)} <span className="text-base text-warm-500">USDC</span></p>
             </div>
-            <button type="button" className="btn-primary w-full" disabled={busy === "buy"} onClick={confirmBuy}>
+            {shipAddress ? (
+              <p className="text-sm">
+                <span className="font-medium">{t("shop.shipTo", { address: shipLine })}</span>
+                <span className="mt-1 block text-xs text-warm-600">{t("shop.addressReused")} · {t("common.demo")}</span>
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-warm-600">{t("shop.needAddress")}</p>
+                <DeliveryAddressForm forceDefault />
+              </div>
+            )}
+            <button type="button" className="btn-primary w-full" disabled={busy === "buy" || !shipAddress} onClick={confirmBuy}>
               {busy === "buy" ? t("home.paying") : t("shop.payUsdc", { amount: buyOffer.priceUsdc.toFixed(2) })}
             </button>
           </div>
@@ -577,6 +628,11 @@ export default function ShopPage() {
             {t("common.save")}
           </button>
         </div>
+      </Sheet>
+
+      <Sheet open={addressOpen} onClose={() => setAddressOpen(false)} title={t("address.title")}>
+        <p className="mb-3 text-sm text-warm-600">{t("address.hint")}</p>
+        <DeliveryAddressForm forceDefault={addresses.length === 0} onSaved={() => setAddressOpen(false)} />
       </Sheet>
 
       <Sheet open={connectOpen} onClose={() => setConnectOpen(false)} title={t("shop.connectTitle")}>
