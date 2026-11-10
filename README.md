@@ -76,7 +76,7 @@ Earlier testnet transactions from the original deploy (6 Nov 2026), already on-c
 
 ## Build timeline
 
-Every commit in this repository is dated **6–7 Nov 2026**. The first is `c4a4051` (2026-11-06 14:02 +0700, “Nearly — NEAR wallet…”). The hackathon window used here is the 1 Nov 2026 announcement through 14 Nov 2026 23:59 UTC. Nothing in `git log` predates 1 Nov. The agent-policy contract landed the same day in `972b9d9`, before the rebrand commit `9f9c61c`. There is no vendored pre-hackathon contract; the wasm in `contracts/agent-policy/res/` was built from `contracts/agent-policy/src/lib.rs`.
+Every commit in this repository falls inside **1–14 Nov 2026**. The first is `c4a4051` (2026-11-06 14:02 +0700, “Nearly — NEAR wallet…”). The hackathon window used here is the 1 Nov 2026 announcement through 14 Nov 2026 23:59 UTC. Nothing in `git log` predates 1 Nov. The agent-policy contract landed the same day in `972b9d9`, before the rebrand commit `9f9c61c`. There is no vendored pre-hackathon contract; the wasm in `contracts/agent-policy/res/` was built from `contracts/agent-policy/src/lib.rs`.
 
 ## What makes the agent an agent
 
@@ -211,4 +211,4 @@ flowchart LR
 
 ## License
 
-MIT · Built at NEAR Hackathon, 6–7 Nov 2026.
+MIT · Built at NEAR Hackathon, Nov 2026.
