@@ -340,6 +340,8 @@ export const zh: Dict = {
   "shop.buyFailed": "购买失败",
   "shop.errorGeneric": "出了点问题",
   "shop.savedOnChain": "已通过钱包保存到链上。",
+  "shop.savedGasless": "已保存在链上。Gas 由 NearPocket 承担。",
+  "shop.ownerOnlyChain": "链上批准仅限合约所有者，因此这一步保存在本机。",
   "shop.savedLocal": "已保存在本地（演示）。",
   "shop.checkPrice": "立即查看价格",
   "shop.remove": "移除",
@@ -383,6 +385,7 @@ export const zh: Dict = {
   "receipt.xendit": "Xendit sandbox",
   "receipt.partnerRef": "合作方参考号",
   "receipt.nearTx": "NEAR 交易",
+  "receipt.gasCovered": "Gas 由 NearPocket 承担",
   "receipt.demoTag": "（演示）",
   "receipt.policy": "策略合约",
 

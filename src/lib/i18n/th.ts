@@ -340,6 +340,8 @@ export const th: Dict = {
   "shop.buyFailed": "ซื้อไม่สำเร็จ",
   "shop.errorGeneric": "มีบางอย่างผิดพลาด",
   "shop.savedOnChain": "บันทึกบนเชนผ่านวอลเล็ตของคุณแล้ว",
+  "shop.savedGasless": "บันทึกบนเชนแล้ว NearPocket ออกค่าแก๊สให้",
+  "shop.ownerOnlyChain": "การอนุมัติบนเชนทำได้เฉพาะเจ้าของสัญญา ดังนั้นขั้นตอนนี้จึงอยู่บนอุปกรณ์นี้",
   "shop.savedLocal": "บันทึกในเครื่อง (เดโม)",
   "shop.checkPrice": "ตรวจราคาตอนนี้",
   "shop.remove": "ลบ",
@@ -383,6 +385,7 @@ export const th: Dict = {
   "receipt.xendit": "Xendit sandbox",
   "receipt.partnerRef": "เลขอ้างอิงพาร์ตเนอร์",
   "receipt.nearTx": "ธุรกรรม NEAR",
+  "receipt.gasCovered": "NearPocket ออกค่าแก๊สให้",
   "receipt.demoTag": "(เดโม)",
   "receipt.policy": "สัญญาวงเงิน",
 

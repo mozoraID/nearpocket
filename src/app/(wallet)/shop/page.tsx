@@ -37,6 +37,7 @@ import type { FxQuote } from "@/lib/fx/quote";
 import { settleAndRecord } from "@/lib/client/pay";
 import { approveWaitlistItem, recheckWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
+import { shopBuyCalls, shopRequestCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
 import { trySetPolicyOnChain } from "@/lib/near/set-policy";
 import { useT } from "@/lib/i18n";
 import { AgentChatInline } from "@/components/agent/AgentChatInline";
@@ -181,6 +182,20 @@ export default function ShopPage() {
     });
     setAskFor(null);
     setMsg(within ? t("shop.foundMsg") : t("shop.watchingMsg"));
+    void submitPolicyCalls(
+      shopRequestCalls({
+        id: queued.id,
+        title: queued.title,
+        category: queued.category,
+        amountUsdc: queued.currentPriceUsdc,
+        withinBudget: within,
+      }),
+    )
+      .then((chain) => {
+        if (chain.mode === "gasless" && chain.txHash) setMsg(t("receipt.gasCovered"));
+        else if (chain.detailCode === "owner-only" && !demoMode) setMsg(t("shop.ownerOnlyChain"));
+      })
+      .catch(() => null);
     setTimeout(() => document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
@@ -203,11 +218,23 @@ export default function ShopPage() {
       });
       req.note = "Buy now from NearPocket Shop.";
       const checkout = await decorateShopCheckout(req, shipAddress);
+      const chain = await submitPolicyCalls(
+        shopBuyCalls({
+          id: `buy_${Date.now().toString(36)}`,
+          title: buyOffer.title.split(" · ")[0],
+          category: categoryFor(buyOffer.title),
+          amountUsdc: buyOffer.priceUsdc,
+        }),
+      ).catch(() => null);
       const r = await settleAndRecord(checkout, {
         kind: "purchase",
         title: buyOffer.title.split(" · ")[0],
         countTowardAgentPolicy: true,
+        txHash: chain?.txHash,
+        gasCovered: chain?.mode === "gasless",
+        chainNote: chain?.detailCode === "owner-only" ? "owner-only" : undefined,
       });
+      if (chain?.detailCode === "owner-only" && !demoMode) setMsg(t("shop.ownerOnlyChain"));
       setBuyReceipt(r);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t("shop.buyFailed"));
@@ -221,7 +248,12 @@ export default function ShopPage() {
     setBusy(id);
     setMsg(null);
     try {
-      await fn();
+      const result = await fn();
+      if (result && typeof result === "object") {
+        const chain = result as { gasCovered?: boolean; chainNote?: string };
+        if (chain.gasCovered) setMsg(t("receipt.gasCovered"));
+        else if (chain.chainNote === "owner-only") setMsg(t("shop.ownerOnlyChain"));
+      }
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("shop.errorGeneric"));
     } finally {
@@ -234,8 +266,12 @@ export default function ShopPage() {
     const result = await trySetPolicyOnChain(policy, { demoMode, accountId });
     setPolicyMsg(
       result.mode === "on-chain"
-        ? t("shop.savedOnChain")
-        : result.detail || t("shop.savedLocal"),
+        ? result.gasCovered
+          ? t("shop.savedGasless")
+          : t("shop.savedOnChain")
+        : result.detailCode === "owner-only"
+          ? t("shop.ownerOnlyChain")
+          : result.detail || t("shop.savedLocal"),
     );
     setLimitsOpen(false);
   }

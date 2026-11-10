@@ -44,8 +44,14 @@ export default function HomePage() {
     setBusyId(id);
     setMsg(null);
     try {
-      await approveWaitlistItem(item);
-      setMsg(t("home.bought", { title: item.title }));
+      const receipt = await approveWaitlistItem(item);
+      setMsg(
+        receipt.gasCovered
+          ? t("receipt.gasCovered")
+          : receipt.chainNote === "owner-only"
+            ? t("shop.ownerOnlyChain")
+            : t("home.bought", { title: item.title }),
+      );
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("home.approveFailed"));
     } finally {

@@ -340,6 +340,8 @@ export const en = {
   "shop.buyFailed": "Buy failed",
   "shop.errorGeneric": "Something went wrong",
   "shop.savedOnChain": "Saved on-chain via your wallet.",
+  "shop.savedGasless": "Saved on-chain. Gas covered by NearPocket.",
+  "shop.ownerOnlyChain": "On-chain approval is only allowed for the contract owner, so this stayed on this device.",
   "shop.savedLocal": "Saved locally (demo).",
   "shop.checkPrice": "Check price now",
   "shop.remove": "Remove",
@@ -383,6 +385,7 @@ export const en = {
   "receipt.xendit": "Xendit sandbox",
   "receipt.partnerRef": "Partner ref",
   "receipt.nearTx": "NEAR tx",
+  "receipt.gasCovered": "Gas covered by NearPocket",
   "receipt.demoTag": "(demo)",
   "receipt.policy": "Policy contract",
 

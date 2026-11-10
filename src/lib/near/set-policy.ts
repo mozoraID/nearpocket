@@ -1,58 +1,48 @@
 "use client";
 
-import { NEAR_CONFIG } from "./config";
-import { numberToUsdc6 } from "./contract";
 import type { SpendPolicy } from "@/lib/agent/policy";
+import { setPolicyCall, submitPolicyCalls } from "./policy-chain";
 
 /**
- * When a real wallet-selector session is active, sign set_policy on the
- * agent-policy contract. Demo / local / privy-without-signer → local only.
+ * Save spend limits. On testnet, try a gasless meta-transaction first.
+ * If the relayer is not configured, the connected wallet sends set_policy
+ * and the user pays gas. Demo mode stays on this device.
+ *
+ * set_policy is owner-only. The predecessor of a meta-transaction is the
+ * signing account, so a wallet that is not the contract owner is not sent
+ * on-chain.
  */
 export async function trySetPolicyOnChain(
   policy: SpendPolicy,
   opts: { demoMode: boolean; accountId: string | null },
-): Promise<{ ok: boolean; mode: "on-chain" | "local"; detail?: string }> {
+): Promise<{
+  ok: boolean;
+  mode: "on-chain" | "local";
+  gasCovered?: boolean;
+  detailCode?: "owner-only";
+  detail?: string;
+}> {
   if (opts.demoMode || !opts.accountId || opts.accountId === "demo.local") {
     return { ok: true, mode: "local", detail: "Demo mode — saved locally." };
   }
   try {
-    const { setupWalletSelector } = await import("@near-wallet-selector/core");
-    const { setupMeteorWallet } = await import("@near-wallet-selector/meteor-wallet");
-    const { actions } = await import("near-api-js");
-    const modules = [setupMeteorWallet()];
-    try {
-      const { setupHotWallet } = await import("@near-wallet-selector/hot-wallet");
-      modules.push(setupHotWallet());
-    } catch { /* optional */ }
-    const selector = await setupWalletSelector({
-      network: NEAR_CONFIG.networkId,
-      modules,
-    });
-    if (!selector.isSignedIn()) {
-      return { ok: true, mode: "local", detail: "Wallet not signed in — saved locally." };
+    const chain = await submitPolicyCalls([setPolicyCall(policy)]);
+    if (chain.detailCode === "owner-only") {
+      return { ok: true, mode: "local", detailCode: "owner-only" };
     }
-    const wallet = await selector.wallet();
-    const action = actions.functionCall(
-      "set_policy",
-      {
-        daily_limit_usdc_6: numberToUsdc6(policy.dailyLimitUsdc),
-        per_item_max_usdc_6: numberToUsdc6(policy.perItemMaxUsdc),
-        require_approval: policy.requireApproval,
-        paused: policy.paused,
-      },
-      BigInt("30000000000000"),
-      BigInt(0),
-    );
-    await wallet.signAndSendTransaction({
-      receiverId: NEAR_CONFIG.agentPolicyContract,
-      actions: [action as never],
-    });
-    return { ok: true, mode: "on-chain" };
-  } catch (e) {
+    if (chain.ok && chain.txHash) {
+      return { ok: true, mode: "on-chain", gasCovered: chain.mode === "gasless" };
+    }
+    return {
+      ok: true,
+      mode: "local",
+      detail: chain.detail || "Saved locally.",
+    };
+  } catch (error) {
     return {
       ok: false,
       mode: "local",
-      detail: e instanceof Error ? e.message : "set_policy failed — kept local",
+      detail: error instanceof Error ? error.message : "set_policy failed — kept local",
     };
   }
 }

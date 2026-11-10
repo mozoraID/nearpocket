@@ -5,6 +5,7 @@ import { checkSpend, type WaitlistItem } from "@/lib/agent/policy";
 import { buildCardSettlement } from "@/lib/settlement";
 import type { FxQuote } from "@/lib/fx/quote";
 import { useNearPocketStore } from "@/lib/store";
+import { shopApproveCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
 import { settleAndRecord } from "./pay";
 import { decorateShopCheckout } from "./shop-order";
 
@@ -27,7 +28,15 @@ export async function approveWaitlistItem(item: WaitlistItem) {
   });
   req.note = `Agent purchase after user approval. Policy: daily ${st.policy.dailyLimitUsdc}, per-item ${st.policy.perItemMaxUsdc} USDC.`;
   const checkout = await decorateShopCheckout(req, address);
-  const receipt = await settleAndRecord(checkout, { kind: "purchase", title: item.title, countTowardAgentPolicy: true });
+  const chain = await submitPolicyCalls(shopApproveCalls({ id: item.id, amountUsdc: price })).catch(() => null);
+  const receipt = await settleAndRecord(checkout, {
+    kind: "purchase",
+    title: item.title,
+    countTowardAgentPolicy: true,
+    txHash: chain?.txHash,
+    gasCovered: chain?.mode === "gasless",
+    chainNote: chain?.detailCode === "owner-only" ? "owner-only" : undefined,
+  });
   st.updateWaitlist(item.id, {
     status: receipt.status === "failed" ? "awaiting_approval" : "purchased",
     agentReason:

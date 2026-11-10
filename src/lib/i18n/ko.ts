@@ -340,6 +340,8 @@ export const ko: Dict = {
   "shop.buyFailed": "구매 실패",
   "shop.errorGeneric": "문제가 발생했습니다",
   "shop.savedOnChain": "지갑을 통해 온체인에 저장했습니다.",
+  "shop.savedGasless": "온체인에 저장했습니다. 가스비는 NearPocket가 부담합니다.",
+  "shop.ownerOnlyChain": "온체인 승인은 컨트랙트 소유자만 할 수 있어 이 기기에 저장했습니다.",
   "shop.savedLocal": "기기에 저장했습니다 (데모).",
   "shop.checkPrice": "지금 가격 확인",
   "shop.remove": "삭제",
@@ -383,6 +385,7 @@ export const ko: Dict = {
   "receipt.xendit": "Xendit sandbox",
   "receipt.partnerRef": "파트너 참조",
   "receipt.nearTx": "NEAR 트랜잭션",
+  "receipt.gasCovered": "가스비는 NearPocket가 부담합니다",
   "receipt.demoTag": "(데모)",
   "receipt.policy": "정책 컨트랙트",
 

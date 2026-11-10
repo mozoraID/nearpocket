@@ -340,6 +340,8 @@ export const ms: Dict = {
   "shop.buyFailed": "Pembelian gagal",
   "shop.errorGeneric": "Sesuatu tidak kena",
   "shop.savedOnChain": "Disimpan on-chain melalui dompet anda.",
+  "shop.savedGasless": "Disimpan on-chain. Gas ditanggung oleh NearPocket.",
+  "shop.ownerOnlyChain": "Kelulusan on-chain hanya untuk pemilik kontrak, jadi langkah ini kekal pada peranti ini.",
   "shop.savedLocal": "Disimpan secara tempatan (demo).",
   "shop.checkPrice": "Semak harga sekarang",
   "shop.remove": "Buang",
@@ -383,6 +385,7 @@ export const ms: Dict = {
   "receipt.xendit": "Xendit sandbox",
   "receipt.partnerRef": "Rujukan rakan kongsi",
   "receipt.nearTx": "Tx NEAR",
+  "receipt.gasCovered": "Gas ditanggung oleh NearPocket",
   "receipt.demoTag": "(demo)",
   "receipt.policy": "Kontrak dasar",
 

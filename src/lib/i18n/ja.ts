@@ -340,6 +340,8 @@ export const ja: Dict = {
   "shop.buyFailed": "購入に失敗しました",
   "shop.errorGeneric": "問題が発生しました",
   "shop.savedOnChain": "ウォレット経由でオンチェーンに保存しました。",
+  "shop.savedGasless": "オンチェーンに保存しました。ガス代は NearPocket が負担します。",
+  "shop.ownerOnlyChain": "オンチェーンの承認はコントラクトの所有者だけができます。この操作は端末内に保存しました。",
   "shop.savedLocal": "端末内に保存しました（デモ）。",
   "shop.checkPrice": "今の価格を確認",
   "shop.remove": "削除",
@@ -383,6 +385,7 @@ export const ja: Dict = {
   "receipt.xendit": "Xendit sandbox",
   "receipt.partnerRef": "パートナー参照",
   "receipt.nearTx": "NEARトランザクション",
+  "receipt.gasCovered": "ガス代は NearPocket が負担します",
   "receipt.demoTag": "（デモ）",
   "receipt.policy": "ポリシーコントラクト",
 
