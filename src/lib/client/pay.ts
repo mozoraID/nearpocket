@@ -11,6 +11,10 @@ export async function settleAndRecord(
     title?: string;
     /** Only agent/shop purchases count toward on-chain spend policy */
     countTowardAgentPolicy?: boolean;
+    /** Real testnet hash from a gasless relay or a wallet-paid fallback. */
+    txHash?: string;
+    gasCovered?: boolean;
+    chainNote?: "owner-only";
   } = {},
 ): Promise<SettlementReceipt> {
   const res = await fetch("/api/settle", {
@@ -20,6 +24,11 @@ export async function settleAndRecord(
   });
   const data = (await res.json()) as SettlementReceipt & { error?: string };
   if (!res.ok) throw new Error(data.error || "Payment failed");
+  if (opts.txHash) {
+    data.nearTxHash = opts.txHash;
+    data.gasCovered = Boolean(opts.gasCovered);
+  }
+  if (opts.chainNote) data.chainNote = opts.chainNote;
   const st = useNearPocketStore.getState();
   if (data.status !== "failed") {
     st.debitUsdc(req.quote.totalUsdc, {

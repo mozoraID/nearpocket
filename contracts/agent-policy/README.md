@@ -57,4 +57,8 @@ NEAR_CREDENTIALS_FILE=./.nearly-credentials/owner.json npm run testnet:demo
 
 The script refuses mainnet account ids and any non-testnet RPC. It reads `get_policy`, requests a spend inside the live limits, approves it, then requests a spend over the limit and expects the contract to reject. Every step prints a testnet explorer link. It does not deploy or replace code.
 
+## Meta-transactions
+
+A relayer can pay gas by submitting a NEP-366 `SignedDelegate`. The contract still uses `env::predecessor_account_id()`, and that predecessor is the account that signed the delegate, not the relayer account. `set_policy`, `approve_spend`, `queue_item`, `set_item_status`, and `upsert_plan` therefore succeed only when the signer is the owner. `request_spend` can be signed by any account and still panics with `item` unless the owner has queued that id. No contract change is required for the owner to use a relayer. The web app does not ask a non-owner to sign the owner-only methods.
+
 `--create-throwaway` is optional: it asks the testnet faucet for a new account, deploys `res/nearly_agent_policy.wasm` onto that account only, and runs the same flow. The key is written to gitignored `.nearly-credentials/testnet-demo.json` and is not printed.

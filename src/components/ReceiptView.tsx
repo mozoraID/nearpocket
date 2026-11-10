@@ -38,6 +38,9 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
         <div className="mt-2">
           <StatusBadge status={receipt.status} />
         </div>
+        {receipt.gasCovered && (
+          <p className="mt-2 text-xs text-warm-600">{t("receipt.gasCovered")}</p>
+        )}
       </div>
       <div className="divide-y divide-cream-300 border-t border-cream-300">
         <Row k={t("receipt.rail")} v={`${r.rail.name} · ${r.rail.country}`} />
@@ -104,6 +107,9 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
             </li>
           ))}
         </ol>
+      )}
+      {receipt.chainNote === "owner-only" && (
+        <p className="text-xs leading-relaxed text-warm-600">{t("shop.ownerOnlyChain")}</p>
       )}
       <p className="text-xs leading-relaxed text-warm-500">
         {r.mode === "merchant_checkout" ? t("receipt.intentsNote") : receipt.complianceNote}

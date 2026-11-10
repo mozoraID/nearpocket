@@ -56,6 +56,10 @@ export interface SettlementReceipt {
   }[];
   complianceNote: string;
   mocked: boolean;
+  /** True when a testnet relayer paid the gas for nearTxHash. */
+  gasCovered?: boolean;
+  /** On-chain step was not sent because this account is not the contract owner. */
+  chainNote?: "owner-only";
 }
 
 export interface SettlementAdapter {

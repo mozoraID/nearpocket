@@ -1,5 +1,6 @@
 "use client";
 
+import { clearFunctionCallKey } from "@/lib/near/local-access-key";
 import { clearLocalWallet } from "@/lib/wallet/local";
 import { useNearPocketStore } from "@/lib/store";
 
@@ -46,6 +47,7 @@ export async function fullSignOut(opts?: {
   // 1) Local encrypted wallet
   try {
     clearLocalWallet();
+    clearFunctionCallKey();
   } catch { /* ignore */ }
 
   // 2) Wallet selector sessions (Meteor / HOT / …)

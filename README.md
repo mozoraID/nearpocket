@@ -22,6 +22,7 @@ Screenshots: [landing](docs/screenshots/landing.png) · [home](docs/screenshots/
 | EMVCo parser + CRC + camera / upload | **Real** |
 | FX (Frankfurter/ECB, cross-check open.er-api, static table if both are down) | **Real** when reachable; UI shows source. **Fallback rates** if not |
 | Agent-policy contract on testnet | **Real** — [`nearly-7b1462.testnet`](https://testnet.nearblocks.io/address/nearly-7b1462.testnet) |
+| Gasless shop approval | **Testnet relayer** when `RELAYER_ACCOUNT_ID` and `RELAYER_PRIVATE_KEY` are set. Otherwise the connected wallet pays gas, or the step stays on this device |
 | NEAR Intents 1Click dry quote | **Real** public quote. Execution code is wired and **was not run** (see below) |
 | Marketplace search | Amazon via DummyJSON when reachable; other shops **mocked**, with real search URLs, labeled |
 | Xendit QRIS | **Real Test Mode** only when `XENDIT_SECRET_KEY` is set. If Xendit or 0xramp is unreachable (network or HTTP 5xx), settlement **falls back to the labeled mock**. A 4xx stays a failed receipt |
@@ -101,7 +102,7 @@ Production, after the hackathon:
 
 The contract records limits and a waitlist. It does **not** hold USDC. Moving tokens is a separate transaction the owner signs.
 
-- `set_policy`, `approve_spend`, `queue_item`, and `upsert_plan` require `predecessor == owner`. A stranger’s call panics with `owner only`.
+- `set_policy`, `approve_spend`, `queue_item`, `set_item_status`, and `upsert_plan` require `predecessor == owner`. A stranger’s call panics with `owner only`. A gasless meta-transaction does not change that: the predecessor is the account that signed the delegate, not the relayer.
 - The agent key should be a **function-call access key** whose method list is `request_spend` (views need no key). That key cannot approve, raise limits, or pause.
 - With `require_approval` (the default, and the value on the deployed contract), `request_spend` only marks `awaiting_approval`. `spent_today` increases in `approve_spend`.
 - `request_spend` and `approve_spend` both reject `over per-item max` and `over daily limit`. `paused` rejects both.
@@ -146,7 +147,7 @@ npm run dev
 Open http://localhost:3000. `npm test` and `npm run build` also pass with an empty environment. Google login stays off until `NEXT_PUBLIC_PRIVY_APP_ID` is set. `XENDIT_SECRET_KEY` is server-only; it is not a `NEXT_PUBLIC_` variable.
 
 ```bash
-npm test                 # EMVCo/QRIS, 419 i18n keys × 7 locales, Intents gate, shop order receipt
+npm test                 # EMVCo/QRIS, 422 i18n keys × 7 locales, Intents gate, shop order, relayer allowlist
 npm run test:contract    # agent-policy unit tests (Rust 1.85+)
 npm run lint
 npm run build
@@ -164,9 +165,39 @@ NEAR_CREDENTIALS_FILE=./.nearly-credentials/owner.json npm run testnet:demo
 
 The JSON file is `{ "account_id", "private_key" }`. Default contract is `nearly-7b1462.testnet`. Override with `NEAR_CONTRACT_ID` or `--contract id.testnet`. Testnet only. Put the printed links in **On-chain proof** above.
 
+### Gasless transactions
+
+Shop request, approval, and buy now can be sent as a NEAR meta-transaction (NEP-366) on testnet. The user signs a delegate action. The relayer account wraps that signature in a transaction, pays the gas, and the contract still sees the signing account as the predecessor. The receipt shows “Gas covered by NearPocket” and a testnet explorer link when the relay is included. If the relayer is not configured, or the relay fails before it is included, the same call is sent by the connected wallet and the user pays gas. Demo mode never leaves this device. QR pay does not call the policy contract.
+
+Signing:
+
+- A wallet that implements `signDelegateActions` (or `signDelegateAction`) signs the delegate with a key it already holds.
+- Meteor, HOT, Intear, and NEAR Mobile in the current wallet-selector packages do not sign delegates. For those wallets, and for an in-browser testnet account, NearPocket generates a function-call key in the browser, stores it on this device, and registers it once on the account (that registration is a normal transaction). Later calls are signed with that key and relayed. The key is limited to the agent-policy contract and its user-facing methods.
+
+The relayer only forwards:
+
+- Function calls. NEAR transfer, AddKey, DeleteKey, DeployContract, DeleteAccount, and Stake are rejected.
+- Receiver is the agent-policy contract (`NEAR_CONTRACT_ID`, or `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, default `nearly-7b1462.testnet`) or the testnet USDC contract (`NEAR_USDC_CONTRACT_ID`, default `usdc.fakes.testnet`).
+- Methods on the policy contract: `request_spend`, `approve_spend`, `queue_item`, `set_item_status`, `set_policy`, `upsert_plan`, `get_policy`, `get_plan`. On the token: `ft_transfer`, `ft_transfer_call`, `storage_deposit`.
+- At most 100 TGas per action, at most 8 actions, and at most 1 yoctoNEAR attached in total. Only `ft_transfer` and `ft_transfer_call` may attach that 1 yoctoNEAR. `storage_deposit` is allowlisted but cannot pull storage fees from the relayer or the user through this route.
+- An ed25519 public key, a non-zero nonce, a signature that matches, and a `max_block_height` that has not expired and is not more than 1,000 blocks ahead.
+
+`approve_spend`, `queue_item`, `set_item_status`, `set_policy`, and `upsert_plan` are owner-only on the deployed contract. The relayer checks `get_policy` and refuses those methods unless the signer is that owner (`nearly-7b1462.testnet` today). The app does not ask any other account to sign them. `request_spend` is allowed for any account, but the item must already exist, so the app sends it only together with `queue_item` from the owner. Buy now sends `queue_item` then `approve_spend`, not `request_spend`, so the daily counter is not applied twice. No contract change was required.
+
+Abuse limits for this prototype live in memory on each server instance: 12 requests per IP per minute, and 40 relayed transactions per sender account per UTC day. A new instance starts from zero, and instances do not share counters.
+
+```bash
+NEAR_CREDENTIALS_FILE=./sender.json \
+RELAYER_ACCOUNT_ID=nearpocket.testnet \
+RELAYER_PRIVATE_KEY='ed25519:...' \
+npm run relay:demo
+```
+
+`NEAR_PRIVATE_KEY` is ignored. The sender key comes only from `NEAR_CREDENTIALS_FILE`. The relayer can also be `RELAYER_CREDENTIALS_FILE`. The script calls `get_policy` (it does not change contract state) and prints the testnet transaction hash. It refuses mainnet.
+
 ### Optional env
 
-See `.env.example`. `NEXT_PUBLIC_PRIVY_APP_ID` is a publishable id. Secrets (`XENDIT_SECRET_KEY`, `NEAR_PRIVATE_KEY`, AI keys, 0xramp) stay server-side or in the shell for the demo script.
+See `.env.example`. `NEXT_PUBLIC_PRIVY_APP_ID` is a publishable id. Secrets (`XENDIT_SECRET_KEY`, `RELAYER_PRIVATE_KEY`, `NEAR_PRIVATE_KEY`, AI keys, 0xramp) stay server-side or in the shell for the demo scripts.
 
 ### Quick walkthrough (~2 min)
 
