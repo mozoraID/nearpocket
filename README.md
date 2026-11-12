@@ -5,6 +5,12 @@ People in Asia already pay by scanning a QR code, but a NEAR wallet still feels 
 **Tracks:** [Real-World Money](https://nearhackathon.com) · [Agent Economy](https://nearhackathon.com) · deadline 14 Nov 2026 23:59 UTC  
 **License:** MIT
 
+## Hackathon submission
+
+- **Live prototype:** https://nearpocket.vercel.app/
+- **Demo post on X:** https://x.com/ijustabi/status/2118765599472189523
+- **Separate project by the same builder:** [NearBowl](https://github.com/mozoraID/nearbowl) — a NEAR testnet meme-coin launchpad with pet-life mechanics. It is an independent hackathon submission, with its own repository and smart contract, not a NearPocket feature or dependency.
+
 ## See it in 30 seconds
 
 Live demo (no env, no install): **https://nearpocket.vercel.app**
