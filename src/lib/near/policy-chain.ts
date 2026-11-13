@@ -117,11 +117,11 @@ export function shopRequestCalls(item: {
   );
 }
 
-export function shopApproveCalls(item: { id: string; amountUsdc: number }): ContractCall[] {
+export function shopApproveCalls(item: { id: string; amountUsdc: number; amountUsdc6?: string }): ContractCall[] {
   return [
     policyCall("approve_spend", {
       id: item.id,
-      amount_usdc_6: numberToUsdc6(item.amountUsdc),
+      amount_usdc_6: item.amountUsdc6 || numberToUsdc6(item.amountUsdc),
       plan_id: null,
     }),
   ];

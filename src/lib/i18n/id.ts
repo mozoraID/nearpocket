@@ -497,4 +497,12 @@ export const id: Dict = {
   "shop.queuedNotLocked": "Item sudah diantrekan. Permintaan belanja tidak mengunci dana, jadi tidak ada yang dibeli.",
   "tx.failed": "Transaksi gagal",
   "shop.purchasedDemo": "Dibeli (merchant demo) · USDC dilepas di NEAR testnet",
+  "shop.overBudget": "Melebihi anggaran. {title} seharga {price} USDC, anggaran {budget} USDC. Tidak ada yang ditambahkan.",
+  "shop.noneInBudget": "Tidak ada listing dalam {budget} USDC. Tidak ada yang ditambahkan.",
+  "shop.requestOpen": "Permintaan belanja ini sudah terbuka. Setujui atau tolak. Permintaan kedua tidak dikirim.",
+  "shop.paysTo": "Menyetujui mengirim {amount} USDC ke {account}.",
+  "shop.expiresAt": "Kedaluwarsa {when} UTC.",
+  "shop.chainUnread": "Kontrak tidak terbaca, jadi tidak ada yang dikirim.",
+  "home.balanceUnavailable": "Saldo belum tersedia.",
+  "shop.balanceStale": "Menampilkan saldo terakhir yang berhasil dibaca.",
 };

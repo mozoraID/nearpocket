@@ -496,4 +496,12 @@ export const th: Dict = {
   "shop.queuedNotLocked": "รายการถูกเข้าคิวแล้ว คำขอใช้จ่ายไม่ได้ล็อกเงิน จึงยังไม่มีการซื้อ",
   "tx.failed": "ธุรกรรมล้มเหลว",
   "shop.purchasedDemo": "ซื้อแล้ว (ร้านเดโม) · ปล่อย USDC บน NEAR testnet",
+  "shop.overBudget": "เกินงบ {title} ราคา {price} USDC งบ {budget} USDC ยังไม่ได้เพิ่มรายการ",
+  "shop.noneInBudget": "ไม่มีสินค้าในงบ {budget} USDC ยังไม่ได้เพิ่มรายการ",
+  "shop.requestOpen": "คำขอใช้จ่ายนี้เปิดอยู่แล้ว อนุมัติหรือปฏิเสธ ไม่ได้ส่งคำขอที่สอง",
+  "shop.paysTo": "การอนุมัติจะส่ง {amount} USDC ไปที่ {account}",
+  "shop.expiresAt": "หมดอายุ {when} UTC",
+  "shop.chainUnread": "อ่านสัญญาไม่สำเร็จ จึงยังไม่ได้ส่งธุรกรรม",
+  "home.balanceUnavailable": "ยังอ่านยอดคงเหลือไม่ได้",
+  "shop.balanceStale": "แสดงยอดล่าสุดที่อ่านได้",
 };

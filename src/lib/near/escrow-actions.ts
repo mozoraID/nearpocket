@@ -6,28 +6,92 @@ import { sendWalletCalls, submitContractCalls, type ChainResult } from "./gasles
 import { SPEND_FUNCTION_GAS } from "./relay-allowlist";
 import { clearPending, finishPending, rememberPending, type PendingChain } from "./chain-tx";
 import { useNearPocketStore } from "@/lib/store";
+import type { WalletBalances } from "./chain-types";
 
-export interface WalletBalances {
-  walletUsdc: number;
-  escrowAvailableUsdc: number;
-  escrowLockedUsdc: number;
-  registered: boolean;
-  minStorageYocto: string;
-  usdcContract: string;
-  policyContract: string;
-  requests?: { id: string; status: string; amountUsdc: number }[];
+export type { ChainSpendRequest, WalletBalances } from "./chain-types";
+
+const memory = new Map<string, WalletBalances>();
+let inflight: { accountId: string; promise: Promise<WalletBalances | null> } | null = null;
+
+function cacheKey(accountId: string) {
+  return `nearpocket-bal:${accountId}`;
 }
 
-export async function fetchWalletBalances(accountId: string, requestIds: string[] = []): Promise<WalletBalances | null> {
+export function readCachedBalances(accountId: string): WalletBalances | null {
+  const hit = memory.get(accountId);
+  if (hit) return hit;
+  if (typeof sessionStorage === "undefined") return null;
   try {
-    const query = new URLSearchParams({ account: accountId });
-    for (const id of requestIds.slice(0, 20)) query.append("request", id);
-    const res = await fetch(`/api/balances?${query.toString()}`);
-    if (!res.ok) return null;
-    return (await res.json()) as WalletBalances;
+    const raw = sessionStorage.getItem(cacheKey(accountId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as WalletBalances;
+    if (typeof parsed?.walletUsdc !== "number") return null;
+    memory.set(accountId, parsed);
+    return parsed;
   } catch {
     return null;
   }
+}
+
+function writeCachedBalances(accountId: string, balances: WalletBalances) {
+  const clean: WalletBalances = { ...balances };
+  delete clean.stale;
+  memory.set(accountId, clean);
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(cacheKey(accountId), JSON.stringify(clean));
+  } catch {
+    /* private mode can refuse storage; the in-memory copy still serves this tab */
+  }
+}
+
+function withStale(balances: WalletBalances | null): WalletBalances | null {
+  if (!balances) return null;
+  return { ...balances, stale: true };
+}
+
+/** One in-flight read per account. A failed read returns the last good value. */
+export async function loadWalletBalances(accountId: string): Promise<WalletBalances | null> {
+  if (!accountId) return null;
+  if (inflight?.accountId === accountId) return inflight.promise;
+  const task: { promise: Promise<WalletBalances | null> } = {
+    promise: Promise.resolve(null),
+  };
+  task.promise = (async () => {
+    try {
+      const res = await fetch(`/api/balances?account=${encodeURIComponent(accountId)}`, {
+        signal: AbortSignal.timeout(8000),
+        cache: "no-store",
+      });
+      if (!res.ok) return withStale(readCachedBalances(accountId));
+      const data = (await res.json()) as WalletBalances;
+      if (typeof data.walletUsdc !== "number") return withStale(readCachedBalances(accountId));
+      const useful =
+        data.requestsLoaded === true ||
+        data.walletUsdc > 0 ||
+        data.escrowAvailableUsdc > 0 ||
+        data.escrowLockedUsdc > 0;
+      if (!useful) {
+        const cached = readCachedBalances(accountId);
+        if (cached && (cached.walletUsdc > 0 || cached.escrowLockedUsdc > 0 || cached.requestsLoaded)) {
+          return withStale(cached);
+        }
+      }
+      const fresh = { ...data, stale: false };
+      writeCachedBalances(accountId, fresh);
+      return fresh;
+    } catch {
+      return withStale(readCachedBalances(accountId));
+    } finally {
+      if (inflight?.promise === task.promise) inflight = null;
+    }
+  })();
+  inflight = { accountId, promise: task.promise };
+  return task.promise;
+}
+
+export async function fetchWalletBalances(accountId: string): Promise<WalletBalances | null> {
+  return loadWalletBalances(accountId);
 }
 
 async function runPending(pending: PendingChain, run: () => Promise<ChainResult>): Promise<ChainResult> {

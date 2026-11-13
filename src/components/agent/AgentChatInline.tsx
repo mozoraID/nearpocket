@@ -9,6 +9,7 @@ import { attachSavedAddress } from "@/lib/agent/delivery";
 import { defaultAddress, formatShipTo } from "@/lib/address";
 import { metaFor } from "@/lib/marketplaces";
 import { requestWaitlistOnChain } from "@/lib/client/agent";
+import { budgetDecision } from "@/lib/near/spend-guard";
 
 type Msg = { role: "user" | "agent"; text: string; item?: WaitlistItem };
 
@@ -152,28 +153,47 @@ export function AgentChatInline() {
           priceUsdc: number; marketplace: string; title: string; mocked?: boolean; url?: string; merchant?: string;
         }[]).slice().sort((a, b) => a.priceUsdc - b.priceUsdc);
         const budgetCap = item.maxBudgetUsdc || budget;
-        const best = offers.find((o) => o.priceUsdc <= budgetCap) || offers[0];
-        if (best) {
-          item.currentPriceUsdc = best.priceUsdc;
-          item.marketplace = metaFor(best.marketplace)?.label || best.marketplace;
-          item.mocked = best.mocked;
-          item.url = best.url;
-          item.status =
-            best.priceUsdc <= (item.maxBudgetUsdc || item.targetPriceUsdc)
-              ? "awaiting_approval"
-              : "watching";
-          item.agentReason =
-            item.status === "awaiting_approval"
-              ? t("agent.reasonFound", {
-                  price: best.priceUsdc.toFixed(2),
-                  marketplace: item.marketplace || "",
-                })
-              : t("agent.reasonCheapest", {
-                  price: best.priceUsdc.toFixed(2),
-                  budget: item.maxBudgetUsdc ?? budget,
-                });
+        const best = offers.slice().sort((a, b) => a.priceUsdc - b.priceUsdc)[0];
+        if (!best) {
+          setMsgs((m) => [
+            ...m,
+            { role: "agent", text: t("shop.noneInBudget", { budget: budgetCap }) },
+          ]);
+          return;
         }
+        if (budgetDecision(best.priceUsdc, budgetCap) === "over_budget") {
+          setMsgs((m) => [
+            ...m,
+            {
+              role: "agent",
+              text: t("shop.overBudget", {
+                title: best.title || item?.title || "",
+                price: best.priceUsdc.toFixed(2),
+                budget: budgetCap,
+              }),
+            },
+          ]);
+          return;
+        }
+        item.currentPriceUsdc = best.priceUsdc;
+        item.marketplace = metaFor(best.marketplace)?.label || best.marketplace;
+        item.mocked = best.mocked;
+        item.url = best.url;
+        item.merchant = best.merchant || item.merchant;
+        item.status = "awaiting_approval";
+        item.agentReason = t("agent.reasonFound", {
+          price: best.priceUsdc.toFixed(2),
+          marketplace: item.marketplace || "",
+        });
       } catch { /* keep */ }
+
+      if (!item || item.status === "watching" || budgetDecision(item.currentPriceUsdc, item.maxBudgetUsdc || budget) === "over_budget") {
+        setMsgs((m) => [
+          ...m,
+          { role: "agent", text: t("shop.noneInBudget", { budget: item?.maxBudgetUsdc || budget }) },
+        ]);
+        return;
+      }
 
       if (delivery) {
         const attached = attachSavedAddress(item, delivery);
@@ -191,12 +211,14 @@ export function AgentChatInline() {
           item = { ...item, status: "awaiting_approval" };
         }
       }
-      logActivity({
-        kind: "agent",
-        title: t("shop.watchingTitle", { title: item.title }),
-        detail: t("shop.watchingDetail", { budget: item.maxBudgetUsdc ?? "", deadline: item.deadline ?? "" }),
-        status: item.status,
-      });
+      if (item.status === "watching") {
+        logActivity({
+          kind: "agent",
+          title: t("shop.watchingTitle", { title: item.title }),
+          detail: t("shop.watchingDetail", { budget: item.maxBudgetUsdc ?? "", deadline: item.deadline ?? "" }),
+          status: "watching",
+        });
+      }
 
       const shipLine = item.shipTo ? ` ${t("agent.attachedAddress", { address: item.shipTo })}` : "";
       const reply =

@@ -41,7 +41,15 @@ export interface ChainResult {
   txHash?: string;
   explorerUrl?: string;
   success?: boolean;
-  detailCode?: "owner-only" | "legacy-contract" | "needs-escrow" | "demo" | "not-testnet" | "unavailable" | "failed";
+  detailCode?:
+    | "owner-only"
+    | "legacy-contract"
+    | "needs-escrow"
+    | "request-open"
+    | "demo"
+    | "not-testnet"
+    | "unavailable"
+    | "failed";
   detail?: string;
   /** Methods whose final outcome succeeded before a later step failed. */
   completedMethods?: string[];

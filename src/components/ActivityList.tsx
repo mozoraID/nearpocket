@@ -2,6 +2,7 @@
 
 import { ArrowDownLeft, ArrowUpRight, Bot, CreditCard, ShoppingBag } from "lucide-react";
 import type { ActivityEntry } from "@/lib/store";
+import { displayActivityStatus } from "@/lib/near/chain-effects";
 import { StatusBadge } from "./StatusBadge";
 import { formatUsdc } from "@/lib/fx/quote";
 
@@ -39,7 +40,7 @@ export function ActivityRow({ a, onClick }: { a: ActivityEntry; onClick?: () => 
           </span>
         )}
         {a.status && (a.kind !== "topup" || a.status === "onchain" || a.status === "failed") && (
-          <StatusBadge status={a.status} />
+          <StatusBadge status={displayActivityStatus(a) || a.status} />
         )}
       </span>
     </Wrapper>
