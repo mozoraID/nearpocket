@@ -38,7 +38,9 @@ export function ActivityRow({ a, onClick }: { a: ActivityEntry; onClick?: () => 
             {formatUsdc(a.amountUsdc)}
           </span>
         )}
-        {a.status && a.kind !== "topup" && <StatusBadge status={a.status} />}
+        {a.status && (a.kind !== "topup" || a.status === "onchain" || a.status === "failed") && (
+          <StatusBadge status={a.status} />
+        )}
       </span>
     </Wrapper>
   );

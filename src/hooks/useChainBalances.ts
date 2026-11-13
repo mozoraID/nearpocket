@@ -7,6 +7,12 @@ import { fetchWalletBalances, type WalletBalances } from "@/lib/near/escrow-acti
 export function useChainBalances() {
   const accountId = useNearPocketStore((s) => s.accountId);
   const demoMode = useNearPocketStore((s) => s.demoMode);
+  const requestKey = useNearPocketStore((s) =>
+    s.waitlist
+      .filter((item) => item.status === "awaiting_approval" || item.status === "ready")
+      .map((item) => item.id)
+      .join(","),
+  );
   const [balances, setBalances] = useState<WalletBalances | null>(null);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -19,11 +25,11 @@ export function useChainBalances() {
       return;
     }
     setLoading(true);
-    const next = await fetchWalletBalances(accountId);
+    const next = await fetchWalletBalances(accountId, requestKey ? requestKey.split(",") : []);
     setBalances(next);
     setLoaded(true);
     setLoading(false);
-  }, [accountId, real]);
+  }, [accountId, real, requestKey]);
 
   useEffect(() => {
     void refresh();

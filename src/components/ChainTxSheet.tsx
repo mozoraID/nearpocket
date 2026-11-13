@@ -9,18 +9,21 @@ export function ChainTxSheet({
   onClose,
   title,
   hash,
+  error,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   hash: string;
+  error?: string;
 }) {
   const t = useT();
   if (!hash) return null;
   return (
-    <Sheet open={open} onClose={onClose} title={t("pay.onchain")}>
+    <Sheet open={open} onClose={onClose} title={error ? t("tx.failed") : t("pay.onchain")}>
       <div className="space-y-3">
         <p className="text-sm text-warm-600">{title}</p>
+        {error && <p className="text-sm text-[#8a2d1c]">{error}</p>}
         <a
           className="block break-all font-mono text-sm underline"
           href={explorerTxUrl(hash)}

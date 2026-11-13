@@ -493,4 +493,6 @@ export const th: Dict = {
   "escrow.notEnoughEscrow": "เอสโครว์ที่ไม่ได้ล็อกไม่พอ",
   "escrow.needAmount": "ใส่จำนวนที่มากกว่าศูนย์",
   "shop.requestApproval": "ขออนุมัติ",
+  "tx.failed": "ธุรกรรมล้มเหลว",
+  "shop.purchasedDemo": "ซื้อแล้ว (ร้านเดโม) · ปล่อย USDC บน NEAR testnet",
 };

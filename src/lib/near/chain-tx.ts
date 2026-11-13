@@ -17,6 +17,9 @@ export interface PendingChain {
 
 export interface ChainTxNotice extends PendingChain {
   txHash: string;
+  /** False when the hash exists but a receipt failed. */
+  ok?: boolean;
+  error?: string;
 }
 
 export function rememberPending(action: PendingChain) {
@@ -76,11 +79,12 @@ export function publishChainTx(notice: ChainTxNotice) {
   if (!notice.txHash || alreadySeen(notice.txHash)) return;
   markSeen(notice.txHash);
   clearPending();
+  const failed = notice.ok === false;
   useNearPocketStore.getState().logActivity({
     kind: KIND[notice.kind],
     title: notice.title,
-    detail: notice.detail,
-    status: "onchain",
+    detail: failed ? notice.error || notice.detail : notice.detail,
+    status: failed ? "failed" : "onchain",
     amountUsdc: notice.amountUsdc,
     direction: notice.direction,
     txHash: notice.txHash,
@@ -89,9 +93,10 @@ export function publishChainTx(notice: ChainTxNotice) {
   window.dispatchEvent(new CustomEvent<ChainTxNotice>("nearpocket-chain-tx", { detail: notice }));
 }
 
-export function finishPending(txHash: string | undefined) {
+export function finishPending(txHash: string | undefined, outcome?: { ok: boolean; error?: string }) {
   if (!txHash) return;
   const pending = readPending();
   if (!pending) return;
-  publishChainTx({ ...pending, txHash });
+  const ok = outcome?.ok !== false;
+  publishChainTx({ ...pending, txHash, ok, error: ok ? undefined : outcome?.error });
 }

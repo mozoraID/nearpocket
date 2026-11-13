@@ -493,6 +493,8 @@ export const en = {
   "escrow.notEnoughEscrow": "Not enough unlocked escrow.",
   "escrow.needAmount": "Enter an amount greater than zero.",
   "shop.requestApproval": "Request approval",
+  "tx.failed": "Transaction failed",
+  "shop.purchasedDemo": "Purchased (demo merchant) · USDC released on NEAR testnet",
 } as const;
 
 export type TranslationKey = keyof typeof en;

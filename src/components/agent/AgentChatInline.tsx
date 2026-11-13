@@ -187,7 +187,7 @@ export function AgentChatInline() {
       addWaitlist(item);
       if (realWallet && (item.status === "ready" || item.status === "awaiting_approval")) {
         const chain = await requestWaitlistOnChain(item, t("escrow.requested", { title: item.title }));
-        if (chain.kind === "chain" && chain.txHash) {
+        if (chain.kind === "chain" && chain.ok) {
           item = { ...item, status: "awaiting_approval" };
         }
       }

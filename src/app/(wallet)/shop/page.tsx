@@ -109,7 +109,8 @@ export default function ShopPage() {
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [countryFilter, setCountryFilter] = useState("WW");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<Record<string, true>>({});
+  const isPending = (id: string) => Boolean(pendingIds[id]);
   const [msg, setMsg] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [policyMsg, setPolicyMsg] = useState<string | null>(null);
@@ -204,7 +205,7 @@ export default function ShopPage() {
     setMsg(within ? t("shop.foundMsg") : t("shop.watchingMsg"));
     if (within && accountId && accountId !== "demo.local" && !demoMode) {
       void requestWaitlistOnChain(queued, t("escrow.requested", { title: queued.title })).then((result) => {
-        if (result.kind === "chain" && !result.txHash) {
+        if (result.kind === "chain" && !result.ok) {
           const note = chainMessage(t, result.detailCode, result.detail);
           if (note) setMsg(note);
         }
@@ -219,7 +220,7 @@ export default function ShopPage() {
       setMsg(t("shop.needAddress"));
       return;
     }
-    setBusy("buy");
+    setPendingIds((cur) => ({ ...cur, buy: true }));
     try {
       if (buyOffer.priceUsdc > balanceUsdc) throw new Error(t("shop.notEnough"));
       const fx = (await (await fetch(`/api/fx?currency=USD&amount=${buyOffer.priceUsdc}`)).json()) as FxQuote;
@@ -261,18 +262,23 @@ export default function ShopPage() {
       setMsg(e instanceof Error ? e.message : t("shop.buyFailed"));
       setBuyOffer(null);
     } finally {
-      setBusy(null);
+      setPendingIds((cur) => {
+        const next = { ...cur };
+        delete next.buy;
+        return next;
+      });
     }
   }
 
   async function act(id: string, fn: () => Promise<unknown>) {
-    setBusy(id);
+    setPendingIds((cur) => ({ ...cur, [id]: true }));
     setMsg(null);
     try {
       const result = await fn();
       if (result && typeof result === "object") {
         const chain = result as {
           kind?: string;
+          ok?: boolean;
           gasCovered?: boolean;
           chainNote?: string;
           chainDetail?: string;
@@ -280,7 +286,8 @@ export default function ShopPage() {
           detail?: string;
           txHash?: string;
         };
-        if (chain.txHash) setMsg(t("pay.onchain"));
+        if (chain.kind === "chain" && chain.ok) setMsg(t("pay.onchain"));
+        else if (chain.kind === "chain" && chain.txHash) setMsg(chain.detail || t("tx.failed"));
         else if (chain.gasCovered) setMsg(t("receipt.gasCovered"));
         else {
           const note = chainMessage(t, chain.detailCode || chain.chainNote, chain.detail || chain.chainDetail);
@@ -290,7 +297,11 @@ export default function ShopPage() {
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("shop.errorGeneric"));
     } finally {
-      setBusy(null);
+      setPendingIds((cur) => {
+        const next = { ...cur };
+        delete next[id];
+        return next;
+      });
     }
   }
 
@@ -437,7 +448,7 @@ export default function ShopPage() {
                     <button
                       type="button"
                       className="btn-outline !min-h-11"
-                      disabled={busy === o.id}
+                      disabled={isPending(o.id)}
                       onClick={() =>
                         act(o.id, async () => {
                           const id = `wl_${Date.now().toString(36)}`;
@@ -533,28 +544,38 @@ export default function ShopPage() {
                     <button
                       type="button"
                       className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100 disabled:opacity-40"
-                      disabled={busy === w.id}
+                      disabled={isPending(w.id)}
                       onClick={() =>
                         act(w.id, () => requestWaitlistOnChain(w, t("escrow.requested", { title: w.title })))
                       }
                     >
-                      {busy === w.id ? t("home.paying") : t("shop.requestApproval")}
+                      {isPending(w.id) ? t("home.paying") : t("shop.requestApproval")}
                     </button>
                   ) : w.status === "awaiting_approval" ? (
                     <SpendDecision
                       item={w}
-                      busy={busy === w.id || policy.paused}
-                      onApprove={() => act(w.id, () => approveWaitlistItem(w, t("escrow.approved", { title: w.title })))}
+                      busy={isPending(w.id)}
+                      onApprove={() =>
+                        act(
+                          w.id,
+                          () =>
+                            approveWaitlistItem(
+                              w,
+                              w.mocked ? t("shop.purchasedDemo") : t("escrow.approved", { title: w.title }),
+                              t("shop.purchasedDemo"),
+                            ),
+                        )
+                      }
                       onReject={() => act(w.id, () => rejectWaitlistItem(w, t("escrow.rejected", { title: w.title })))}
                     />
                   ) : ["watching", "queued", "searching"].includes(w.status) ? (
                     <button
                       type="button"
                       className="btn-secondary !min-h-11 flex-1"
-                      disabled={busy === w.id}
+                      disabled={isPending(w.id)}
                       onClick={() => act(w.id, () => recheckWaitlistItem(w))}
                     >
-                      {busy === w.id ? "…" : t("shop.checkPrice")}
+                      {isPending(w.id) ? "…" : t("shop.checkPrice")}
                     </button>
                   ) : (
                     <span className="flex-1" />
@@ -661,8 +682,8 @@ export default function ShopPage() {
                 <DeliveryAddressForm forceDefault />
               </div>
             )}
-            <button type="button" className="btn-primary w-full" disabled={busy === "buy" || !shipAddress} onClick={confirmBuy}>
-              {busy === "buy" ? t("home.paying") : t("shop.payUsdc", { amount: buyOffer.priceUsdc.toFixed(2) })}
+            <button type="button" className="btn-primary w-full" disabled={isPending("buy") || !shipAddress} onClick={confirmBuy}>
+              {isPending("buy") ? t("home.paying") : t("shop.payUsdc", { amount: buyOffer.priceUsdc.toFixed(2) })}
             </button>
           </div>
         )}

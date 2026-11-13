@@ -12,6 +12,7 @@ import {
   validateSignedDelegate,
   type ValidatedDelegate,
 } from "./relay-policy";
+import { verdictFromExecutionOutcome } from "./tx-outcome";
 
 export { configuredNetworkId } from "./relay-env";
 
@@ -137,36 +138,11 @@ export function clearOwnerCache(): void {
 }
 
 function readOutcome(result: unknown): { txHash: string; success: boolean; detail: string } {
-  const record = result as {
-    transaction?: { hash?: string };
-    transaction_outcome?: { id?: string };
-    status?: { SuccessValue?: string; Failure?: unknown } | string;
-  };
-  const hash = record.transaction?.hash || record.transaction_outcome?.id || "";
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(hash)) {
+  const verdict = verdictFromExecutionOutcome(result);
+  if (!verdict.hash || !/^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(verdict.hash)) {
     throw new RelayHttpError(502, "relayer did not receive a transaction hash");
   }
-  const status = record.status;
-  if (status && typeof status === "object" && "SuccessValue" in status) {
-    const raw = status.SuccessValue || "";
-    let detail = "";
-    if (raw) {
-      try {
-        detail = Buffer.from(raw, "base64").toString("utf8").slice(0, 200);
-      } catch {
-        detail = "";
-      }
-    }
-    return { txHash: hash, success: true, detail };
-  }
-  if (status && typeof status === "object" && status.Failure) {
-    return {
-      txHash: hash,
-      success: false,
-      detail: JSON.stringify(status.Failure).slice(0, 300),
-    };
-  }
-  return { txHash: hash, success: false, detail: "no execution status" };
+  return { txHash: verdict.hash, success: verdict.ok, detail: verdict.error || "" };
 }
 
 export interface RelayBroadcast {
@@ -219,7 +195,7 @@ export async function relaySignedDelegate(bytes: Uint8Array): Promise<RelayBroad
     outcome = await account.signAndSendTransaction({
       receiverId: validated.senderId,
       actions: [actions.signedDelegate(validated.signedDelegate as never)],
-      waitUntil: "EXECUTED",
+      waitUntil: "FINAL",
       throwOnFailure: false,
     });
   } catch (error) {

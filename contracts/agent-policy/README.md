@@ -14,7 +14,9 @@ Each predecessor account gets its own policy, queue, plans, spend requests, and 
 - `reject_spend` and `expire_spend` return the lock to escrow. `withdraw` sends unlocked escrow back to the account.
 - `set_global_paused` blocks new locks and releases. Deposits and withdrawals stay open.
 
-There is no migration from the previous single-policy contract. That layout did not hold USDC. Deploy this build to a new account and call `new`.
+`queue_item`, `request_spend`, `approve_spend`, and `reject_spend` require 0 attached deposit. Each account may have at most 20 open items and 20 open requests. The contract account pays the storage.
+
+Redeploying this wasm onto an account that already ran `new` (including `pocket.nearpocket.testnet`) is safe. No fields were added to the contract or to stored account records, so existing escrow stays. Do not call `new` again.
 
 ## Init
 
