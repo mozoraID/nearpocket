@@ -1,14 +1,14 @@
 {
   "network": "testnet",
-  "contractId": "pocket.nearpocket.testnet",
+  "contractId": "escrow.nearpocket.testnet",
   "explorerBase": "https://testnet.nearblocks.io",
   "sampleTxs": {
-    "deploy": "EZPQbsQ2PfPwidyk2xz27V9pMYycJwiVpcqNME8HJ9Lq",
-    "deposit": "FfxucrDo82f2m433wrTfzMgNphiB9PLifA9Tsd7T4cfy",
-    "queue_item": "6WX2BGsxxpWs3UTMgTYy5BPeVTJdPE6Fn8xqHnwYVAe3",
-    "request_spend": "5PeRoyfokdiNmVYk14WM9SASjiUhpjoa3wV9QWeJZTVK",
-    "approve_spend": "H8irDtp9X1WXBS9Ls27xE8k6JFQDj6LbGTJ6r8D2P2Jt",
-    "reject_spend": "6S468TNPgyrB6U9FtJK7Pz658WzyJh4Baxpyzm8mv9UB",
-    "withdraw": "6pbwGy7srVGWR9Dt2H6o9wMzbf9rK6ujjV3im1ej1eNc"
+    "deploy": "EHiUVwy4woEk521V8HVC9wioGkyvph2RDqA3e1roobvL",
+    "deposit": "42aT971AP5A8TQwTcyRQbZtTKnNPhFrmxsdH8Go46Zff",
+    "queue_item": "G1HmnJMjVUstk99PXqhp74LyQ4HCMkiexzxNbA9osJH9",
+    "request_spend": "zfRsagRH2CtC3RWLSEt2VSrCpq9HFRy7QbnXL2ZcQ8k",
+    "approve_spend": "8jxPQ2rFsVidG9RMGSgyzC8mQzajAj7jNJYFx1Bx9jTG",
+    "reject_spend": "2MKSkcBdP6UM3i5p3sxW252bbUkj1Lz573DcGtS7ETSx",
+    "withdraw": "3q2FHkFb9xtVxTgyZ4rLJAEPEokExWRBXmtDfp41wFqw"
   }
 }
