@@ -35,7 +35,7 @@ function toBase64(str: string) {
   return Buffer.from(str).toString("base64");
 }
 
-async function viewMethod(method: string, args: object = {}) {
+export async function viewOnContract(contractId: string, method: string, args: object = {}) {
   const res = await fetch(NEAR_CONFIG.nodeUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -46,7 +46,7 @@ async function viewMethod(method: string, args: object = {}) {
       params: {
         request_type: "call_function",
         finality: "final",
-        account_id: NEAR_CONFIG.agentPolicyContract,
+        account_id: contractId,
         method_name: method,
         args_base64: toBase64(JSON.stringify(args)),
       },
@@ -58,6 +58,10 @@ async function viewMethod(method: string, args: object = {}) {
   if (!raw) throw new Error("empty view result");
   const bytes = Uint8Array.from(raw);
   return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+async function viewMethod(method: string, args: object = {}) {
+  return viewOnContract(NEAR_CONFIG.agentPolicyContract, method, args);
 }
 
 export async function fetchContractVersion(): Promise<number | null> {

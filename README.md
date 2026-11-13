@@ -72,6 +72,8 @@ That account's queue, plans, requests, and escrow are separate. `set_policy`, `q
 
 Views: `get_policy`, `get_escrow`, `get_request`, `get_item`, and `get_plan` take `account_id`. `get_config` and `contract_version` (returns `2`) do not.
 
+With a real testnet wallet connected, Home shows that wallet's USDC plus escrow (available and locked), not the demo balance. Shop's spending-limits card can deposit (`ft_transfer_call`, including a token `storage_deposit` when the account is not registered) and withdraw. A plan that finds a listing inside the budget, or **Request approval** on a result, sends `queue_item` and `request_spend`. Approve collects a delivery address in that step when one is missing, then signs `approve_spend`. Reject signs `reject_spend`. Each of those actions adds an activity row labeled confirmed on NEAR testnet and links the transaction hash. Demo listings include a 1.49 USDC deal so a small test balance can run the flow.
+
 The account id is `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, then `src/config/deployed.json`, then `pocket.nearpocket.testnet`. There is no state migration. The previous contract did not hold USDC. Deploy the new wasm to a new account.
 
 ### Deploy and init

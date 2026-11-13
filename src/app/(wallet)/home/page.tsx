@@ -9,14 +9,18 @@ import { ActivityRow } from "@/components/ActivityList";
 import { useNearPocketStore } from "@/lib/store";
 import { AddressRequiredError, defaultAddress, formatShipTo } from "@/lib/address";
 import { approveWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
+import { SpendDecision } from "@/components/SpendDecision";
 import { useT } from "@/lib/i18n";
 import { useDisplayFx } from "@/hooks/useDisplayFx";
+import { useChainBalances } from "@/hooks/useChainBalances";
 
 export default function HomePage() {
   const t = useT();
   const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
+  const demoMode = useNearPocketStore((s) => s.demoMode);
   const waitlist = useNearPocketStore((s) => s.waitlist);
   const ensureDemoWaitlist = useNearPocketStore((s) => s.ensureDemoWaitlist);
+  const { balances, loaded: balancesLoaded, real } = useChainBalances();
   const activity = useNearPocketStore((s) => s.activity);
   const addresses = useNearPocketStore((s) => s.addresses);
   const { localFromUsdc, rateLine, meta } = useDisplayFx();
@@ -30,13 +34,22 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true);
-    ensureDemoWaitlist();
     if (new URLSearchParams(window.location.search).get("topup")) setTopUpOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pending = waitlist.filter((w) => w.status === "awaiting_approval");
-  const bal = mounted ? balanceUsdc : 0;
+  useEffect(() => {
+    if (mounted && demoMode) ensureDemoWaitlist();
+  }, [mounted, demoMode, ensureDemoWaitlist]);
+
+  const pending = waitlist.filter((w) => {
+    if (w.status !== "awaiting_approval") return false;
+    if (!demoMode && (w.notes === "demo" || w.id.startsWith("demo_"))) return false;
+    return true;
+  });
+  const chainTotal = balances
+    ? balances.walletUsdc + balances.escrowAvailableUsdc + balances.escrowLockedUsdc
+    : null;
+  const bal = !mounted ? 0 : real ? chainTotal ?? 0 : balanceUsdc;
 
   async function approve(id: string) {
     const item = waitlist.find((w) => w.id === id);
@@ -44,18 +57,20 @@ export default function HomePage() {
     setBusyId(id);
     setMsg(null);
     try {
-      const receipt = await approveWaitlistItem(item);
-      setMsg(
-        receipt.gasCovered
-          ? t("receipt.gasCovered")
-          : receipt.chainNote === "needs-escrow"
-            ? t("shop.needsEscrow", { amount: receipt.chainDetail || "0.00" })
-            : receipt.chainNote === "legacy-contract"
-              ? t("shop.chainLegacy")
-              : receipt.chainNote === "owner-only"
-                ? t("shop.ownerOnlyChain")
-                : t("home.bought", { title: item.title }),
-      );
+      const result = await approveWaitlistItem(item, t("escrow.approved", { title: item.title }));
+      if (result.kind === "chain") {
+        setMsg(
+          result.txHash
+            ? t("pay.onchain")
+            : result.detailCode === "needs-escrow"
+              ? t("shop.needsEscrow", { amount: result.detail || "0.00" })
+              : result.detailCode === "legacy-contract"
+                ? t("shop.chainLegacy")
+                : result.detail || t("home.approveFailed"),
+        );
+      } else {
+        setMsg(result.gasCovered ? t("receipt.gasCovered") : t("home.bought", { title: item.title }));
+      }
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("home.approveFailed"));
     } finally {
@@ -84,38 +99,25 @@ export default function HomePage() {
                 {w.currentPriceUsdc.toFixed(2)} USDC · {w.marketplace || w.merchant}
                 {w.maxBudgetUsdc ? ` · ${t("home.budgetPart", { amount: w.maxBudgetUsdc })}` : ""}
               </p>
-              <p className="mt-1 text-xs text-cream-300">
-                {hasAddress ? t("shop.shipTo", { address: shipLine }) : t("shop.needAddress")}
-                {!hasAddress && (
-                  <>
-                    {" "}
-                    <Link href="/settings" className="underline">{t("address.title")}</Link>
-                  </>
-                )}
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className="h-11 rounded-full bg-cream-100 font-semibold text-ink disabled:opacity-40"
-                  disabled={busyId === w.id || !hasAddress}
-                  onClick={() => {
-                    if (!hasAddress) {
-                      setMsg(t("shop.needAddress"));
-                      return;
-                    }
-                    approve(w.id);
-                  }}
-                >
-                  {busyId === w.id ? t("home.paying") : t("home.approve")}
-                </button>
-                <button
-                  type="button"
-                  className="h-11 rounded-full border border-cream-400/40 font-semibold"
-                  onClick={() => rejectWaitlistItem(w)}
-                >
-                  {t("home.reject")}
-                </button>
-              </div>
+              {hasAddress ? (
+                <p className="mt-1 text-xs text-cream-300">{t("shop.shipTo", { address: shipLine })}</p>
+              ) : (
+                <p className="mt-1 text-xs text-cream-300">{t("shop.addressAtCheckout")}</p>
+              )}
+              <SpendDecision
+                item={w}
+                busy={busyId === w.id}
+                variant="cream"
+                onApprove={() => approve(w.id)}
+                onReject={async () => {
+                  setBusyId(w.id);
+                  try {
+                    await rejectWaitlistItem(w, t("escrow.rejected", { title: w.title }));
+                  } finally {
+                    setBusyId(null);
+                  }
+                }}
+              />
             </div>
           ))}
           {msg && (
@@ -132,11 +134,20 @@ export default function HomePage() {
       )}
 
       <section className="rounded-[28px] bg-cream-100 p-6 ring-1 ring-cream-300">
-        <p className="text-sm text-warm-600">{t("home.balance")}</p>
+        <p className="text-sm text-warm-600">{real ? t("home.balanceOnChain") : t("home.balanceDemo")}</p>
         <p className="mt-1 text-[40px] font-bold leading-none tracking-tight">
-          {bal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {(real && !balancesLoaded ? "…" : bal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
           <span className="ml-2 text-lg font-semibold text-warm-500">USDC</span>
         </p>
+        {real && balances && (
+          <p className="mt-2 text-sm text-warm-600">
+            {t("home.balanceSplit", {
+              wallet: balances.walletUsdc.toFixed(2),
+              available: balances.escrowAvailableUsdc.toFixed(2),
+              locked: balances.escrowLockedUsdc.toFixed(2),
+            })}
+          </p>
+        )}
         <p className="mt-2 text-sm text-warm-600">{localFromUsdc(bal)}</p>
         {rateLine && meta.code !== "USD" && (
           <p className="mt-1 text-[11px] text-warm-500">{rateLine}</p>

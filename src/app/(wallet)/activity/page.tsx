@@ -11,6 +11,7 @@ import { useNearPocketStore, type ActivityEntry } from "@/lib/store";
 import deployed from "@/config/deployed.json";
 import { explorerTxUrl } from "@/lib/near/config";
 import { useT } from "@/lib/i18n";
+import { ChainTxSheet } from "@/components/ChainTxSheet";
 
 const FILTERS = [
   { id: "all", key: "activity.all" },
@@ -37,6 +38,7 @@ export default function ActivityPage() {
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [chainTx, setChainTx] = useState<{ title: string; hash: string } | null>(null);
   useEffect(() => setMounted(true), []);
 
   const entries: ActivityEntry[] = useMemo(() => {
@@ -91,7 +93,13 @@ export default function ActivityPage() {
             <ActivityRow
               key={a.id}
               a={a}
-              onClick={a.receiptId && receipts.some((r) => (r.merchantReceiptId || r.request.id) === a.receiptId) ? () => setOpenId(a.receiptId!) : undefined}
+              onClick={
+                a.txHash
+                  ? () => setChainTx({ title: a.title, hash: a.txHash as string })
+                  : a.receiptId && receipts.some((r) => (r.merchantReceiptId || r.request.id) === a.receiptId)
+                    ? () => setOpenId(a.receiptId!)
+                    : undefined
+              }
             />
           ))}
         </div>
@@ -122,6 +130,12 @@ export default function ActivityPage() {
       <Sheet open={!!openReceipt} onClose={() => setOpenId(null)} title={t("activity.receipt")}>
         {openReceipt && <ReceiptView receipt={openReceipt} />}
       </Sheet>
+      <ChainTxSheet
+        open={Boolean(chainTx)}
+        onClose={() => setChainTx(null)}
+        title={chainTx?.title || ""}
+        hash={chainTx?.hash || ""}
+      />
     </main>
   );
 }

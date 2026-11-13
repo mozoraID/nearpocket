@@ -8,6 +8,7 @@ import type { WaitlistItem } from "@/lib/agent/policy";
 import { attachSavedAddress } from "@/lib/agent/delivery";
 import { defaultAddress, formatShipTo } from "@/lib/address";
 import { metaFor } from "@/lib/marketplaces";
+import { requestWaitlistOnChain } from "@/lib/client/agent";
 
 type Msg = { role: "user" | "agent"; text: string; item?: WaitlistItem };
 
@@ -69,6 +70,8 @@ export function AgentChatInline() {
   const logActivity = useNearPocketStore((s) => s.logActivity);
   const connected = useNearPocketStore((s) => s.connectedMarketplaces);
   const addresses = useNearPocketStore((s) => s.addresses);
+  const demoMode = useNearPocketStore((s) => s.demoMode);
+  const accountId = useNearPocketStore((s) => s.accountId);
   const savedAddress = defaultAddress(addresses);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -145,10 +148,11 @@ export function AgentChatInline() {
         const data = await (
           await fetch(`/api/marketplaces?q=${encodeURIComponent(item.title)}&only=${encodeURIComponent(only)}`)
         ).json();
-        const offers = (data.offers || []) as {
-          priceUsdc: number; marketplace: string; title: string; mocked?: boolean; url?: string;
-        }[];
-        const best = offers[0];
+        const offers = ((data.offers || []) as {
+          priceUsdc: number; marketplace: string; title: string; mocked?: boolean; url?: string; merchant?: string;
+        }[]).slice().sort((a, b) => a.priceUsdc - b.priceUsdc);
+        const budgetCap = item.maxBudgetUsdc || budget;
+        const best = offers.find((o) => o.priceUsdc <= budgetCap) || offers[0];
         if (best) {
           item.currentPriceUsdc = best.priceUsdc;
           item.marketplace = metaFor(best.marketplace)?.label || best.marketplace;
@@ -176,7 +180,17 @@ export function AgentChatInline() {
         item = attached.item;
       }
 
+      const realWallet = !demoMode && Boolean(accountId) && accountId !== "demo.local";
+      if (realWallet && item.status === "awaiting_approval") {
+        item = { ...item, status: "ready" };
+      }
       addWaitlist(item);
+      if (realWallet && (item.status === "ready" || item.status === "awaiting_approval")) {
+        const chain = await requestWaitlistOnChain(item, t("escrow.requested", { title: item.title }));
+        if (chain.kind === "chain" && chain.txHash) {
+          item = { ...item, status: "awaiting_approval" };
+        }
+      }
       logActivity({
         kind: "agent",
         title: t("shop.watchingTitle", { title: item.title }),

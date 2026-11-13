@@ -72,11 +72,12 @@ function makeAdapter(
       const t = pickTemplate(q.query);
       const now = new Date().toISOString();
       const searchUrl = meta?.searchUrl(q.query) || `https://example.com/${id}?q=${encodeURIComponent(q.query)}`;
-      return t.merchants.slice(0, 2).map((merchant, i) => {
+      const slug = btoa(unescape(encodeURIComponent(q.query))).replace(/[^a-zA-Z0-9]/g, "").slice(0, 8);
+      const listed = t.merchants.slice(0, 2).map((merchant, i) => {
         const jitter = 0.92 + ((i + id.length) % 5) * 0.04 + Math.random() * 0.03;
         const priceUsdc = Math.round(t.base * priceMul * jitter * 100) / 100;
         return {
-          id: `${id}-${btoa(unescape(encodeURIComponent(q.query))).replace(/[^a-zA-Z0-9]/g, "").slice(0, 8)}-${i}`,
+          id: `${id}-${slug}-${i}`,
           marketplace: id,
           title: `${t.title} · ${merchant}`,
           merchant,
@@ -91,6 +92,23 @@ function makeAdapter(
           scrapedAt: now,
         };
       });
+      // A 1–2 USDC demo deal so a small testnet balance can request approval.
+      listed.push({
+        id: `${id}-${slug}-deal`,
+        marketplace: id,
+        title: `${t.title} · Demo deal`,
+        merchant: "Demo deal",
+        priceUsdc: 1.49,
+        url: searchUrl,
+        productUrl: searchUrl,
+        description: `Demo listing for “${q.query}” on ${label}. Priced so a small USDC balance can try approval.`,
+        inStock: true,
+        rating: 4.2,
+        shippingDays: 2,
+        mocked,
+        scrapedAt: now,
+      });
+      return listed;
     },
   };
 }

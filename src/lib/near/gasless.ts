@@ -106,14 +106,27 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(text);
 }
 
-function readHash(outcome: unknown): string | undefined {
+const TX_HASH = /^[1-9A-HJ-NP-Za-km-z]{32,64}$/;
+
+export function readTxHash(outcome: unknown): string | undefined {
+  if (typeof outcome === "string") {
+    const first = outcome.split(",")[0]?.trim();
+    return first && TX_HASH.test(first) ? first : undefined;
+  }
+  if (Array.isArray(outcome)) {
+    for (const item of outcome) {
+      const found = readTxHash(item);
+      if (found) return found;
+    }
+    return undefined;
+  }
   if (!outcome || typeof outcome !== "object") return undefined;
-  const record = outcome as {
-    transaction?: { hash?: string };
-    transaction_outcome?: { id?: string };
-  };
-  const hash = record.transaction?.hash || record.transaction_outcome?.id;
-  return hash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(hash) ? hash : undefined;
+  const record = outcome as Record<string, unknown>;
+  for (const key of ["transactionHashes", "txHash", "hash", "id"]) {
+    const found = readTxHash(record[key]);
+    if (found) return found;
+  }
+  return readTxHash(record.transaction) || readTxHash(record.transaction_outcome);
 }
 
 async function nearRuntime(): Promise<NearRuntime> {
@@ -348,7 +361,7 @@ async function userPays(
       receiverId,
       actions: callActions,
     });
-    const txHash = readHash(outcome);
+    const txHash = readTxHash(outcome);
     return {
       ok: Boolean(txHash),
       mode: txHash ? "user-paid" : "skipped",
@@ -364,6 +377,32 @@ async function userPays(
       detailCode: "unavailable",
     };
   }
+}
+
+/** Sign with the connected wallet. Used when the call attaches more than 1 yoctoNEAR. */
+export async function sendWalletCalls(opts: {
+  accountId: string;
+  receiverId: string;
+  calls: ContractCall[];
+}): Promise<ChainResult> {
+  const blocked = canAttempt(opts.accountId, false);
+  if (blocked) return blocked;
+  let near: NearRuntime;
+  try {
+    near = await nearRuntime();
+  } catch (error) {
+    return skipped("unavailable", error instanceof Error ? error.message : "near-api-js unavailable");
+  }
+  const callActions = opts.calls.map((call) =>
+    near.actions.functionCall(
+      call.methodName,
+      call.args,
+      call.gas ?? DEFAULT_FUNCTION_GAS,
+      call.deposit ?? 0n,
+    ),
+  );
+  const wallet = await getSignedInWallet().catch(() => null);
+  return userPays(near, wallet, opts.accountId, opts.receiverId, callActions);
 }
 
 export async function submitContractCalls(
