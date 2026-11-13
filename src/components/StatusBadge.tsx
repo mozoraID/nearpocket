@@ -10,6 +10,9 @@ const tones: Record<string, string> = {
   completed: "bg-[#e3eedb] text-[#2f5a1f]",
   active: "bg-[#e3eedb] text-[#2f5a1f]",
   mocked: "bg-cream-300 text-warm-600",
+  sandbox: "bg-[#f4e3c7] text-[#7a4b0c]",
+  sandbox_partner: "bg-[#f4e3c7] text-[#7a4b0c]",
+  onchain: "bg-[#e3eedb] text-[#2f5a1f]",
   awaiting_approval: "bg-ink text-cream-100",
   ready: "bg-[#f4e3c7] text-[#7a4b0c]",
   watching: "bg-[#e6e1f2] text-[#463a73]",
@@ -22,7 +25,10 @@ const tones: Record<string, string> = {
 
 const STATUS_KEYS: Record<string, string> = {
   awaiting_approval: "status.needsYou",
-  mocked: "status.demo",
+  mocked: "status.demoPayment",
+  sandbox: "status.sandbox",
+  sandbox_partner: "status.sandboxPartner",
+  onchain: "status.onchain",
   watching: "status.watching",
   searching: "status.searching",
   queued: "status.queued",

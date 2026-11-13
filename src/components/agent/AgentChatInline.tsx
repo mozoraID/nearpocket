@@ -8,7 +8,6 @@ import type { WaitlistItem } from "@/lib/agent/policy";
 import { attachSavedAddress } from "@/lib/agent/delivery";
 import { defaultAddress, formatShipTo } from "@/lib/address";
 import { metaFor } from "@/lib/marketplaces";
-import { DeliveryAddressForm } from "@/components/DeliveryAddressForm";
 
 type Msg = { role: "user" | "agent"; text: string; item?: WaitlistItem };
 
@@ -91,14 +90,9 @@ export function AgentChatInline() {
     if (!text || busy) return;
     setInput("");
     setMsgs((m) => [...m, { role: "user", text }]);
-    if (!savedAddress) {
-      setMsgs((m) => [...m, { role: "agent", text: t("agent.needAddress") }]);
-      return;
-    }
-    const delivery = {
-      shipTo: formatShipTo(savedAddress),
-      addressId: savedAddress.id,
-    };
+    const delivery = savedAddress
+      ? { shipTo: formatShipTo(savedAddress), addressId: savedAddress.id }
+      : undefined;
     setBusy(true);
     try {
       const budget = parseBudgetUsdc(text) ?? 15;
@@ -177,12 +171,10 @@ export function AgentChatInline() {
         }
       } catch { /* keep */ }
 
-      const attached = attachSavedAddress(item, delivery);
-      if (attached.needsAddress) {
-        setMsgs((m) => [...m, { role: "agent", text: t("agent.needAddress") }]);
-        return;
+      if (delivery) {
+        const attached = attachSavedAddress(item, delivery);
+        item = attached.item;
       }
-      item = attached.item;
 
       addWaitlist(item);
       logActivity({
@@ -192,19 +184,19 @@ export function AgentChatInline() {
         status: item.status,
       });
 
-      const shipLine = t("agent.attachedAddress", { address: item.shipTo || delivery.shipTo });
+      const shipLine = item.shipTo ? ` ${t("agent.attachedAddress", { address: item.shipTo })}` : "";
       const reply =
         item.status === "awaiting_approval"
           ? `${t("agent.needApprove")} ${t("agent.foundReply", {
               title: item.title,
               price: item.currentPriceUsdc.toFixed(2),
               marketplace: item.marketplace || t("agent.marketplace"),
-            })} ${shipLine}`
+            })}${shipLine}`
           : `${t("agent.created")} ${t("agent.watchingReply", {
               title: item.title,
               budget: item.maxBudgetUsdc ?? budget,
               deadline: item.deadline || deadline,
-            })} ${shipLine}`;
+            })}${shipLine}`;
 
       setMsgs((m) => [...m, { role: "agent", text: reply, item }]);
     } finally {
@@ -235,12 +227,6 @@ export function AgentChatInline() {
           </div>
         ))}
         {busy && <p className="text-xs text-warm-500">{t("agent.thinking")}</p>}
-        {!savedAddress && (
-          <div className="rounded-2xl bg-cream-50 p-3 ring-1 ring-cream-300">
-            <p className="mb-2 text-xs text-warm-600">{t("agent.needAddress")}</p>
-            <DeliveryAddressForm forceDefault />
-          </div>
-        )}
         <div ref={endRef} />
       </div>
       <form

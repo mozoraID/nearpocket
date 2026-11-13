@@ -14,7 +14,8 @@ export async function settleAndRecord(
     /** Real testnet hash from a gasless relay or a wallet-paid fallback. */
     txHash?: string;
     gasCovered?: boolean;
-    chainNote?: "owner-only";
+    chainNote?: "owner-only" | "legacy-contract" | "needs-escrow";
+    chainDetail?: string;
   } = {},
 ): Promise<SettlementReceipt> {
   const res = await fetch("/api/settle", {
@@ -29,6 +30,7 @@ export async function settleAndRecord(
     data.gasCovered = Boolean(opts.gasCovered);
   }
   if (opts.chainNote) data.chainNote = opts.chainNote;
+  if (opts.chainDetail) data.chainDetail = opts.chainDetail;
   const st = useNearPocketStore.getState();
   if (data.status !== "failed") {
     st.debitUsdc(req.quote.totalUsdc, {

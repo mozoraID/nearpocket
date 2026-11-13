@@ -81,13 +81,13 @@ export function createXenditAdapter(secretKey: string): SettlementAdapter {
         });
         timeline.push({
           at: now(),
-          status: "paid",
-          detail: "Sandbox QRIS object created successfully (not a live merchant credit).",
+          status: "sandbox",
+          detail: "Sandbox payment (Xendit test mode). Not a live merchant credit.",
         });
 
         return {
           request: req,
-          status: "paid",
+          status: "sandbox",
           partnerRef: body.id,
           merchantReceiptId: body.reference_id,
           nearTxHash: undefined,

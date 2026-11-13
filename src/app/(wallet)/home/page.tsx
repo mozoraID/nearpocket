@@ -48,9 +48,13 @@ export default function HomePage() {
       setMsg(
         receipt.gasCovered
           ? t("receipt.gasCovered")
-          : receipt.chainNote === "owner-only"
-            ? t("shop.ownerOnlyChain")
-            : t("home.bought", { title: item.title }),
+          : receipt.chainNote === "needs-escrow"
+            ? t("shop.needsEscrow", { amount: receipt.chainDetail || "0.00" })
+            : receipt.chainNote === "legacy-contract"
+              ? t("shop.chainLegacy")
+              : receipt.chainNote === "owner-only"
+                ? t("shop.ownerOnlyChain")
+                : t("home.bought", { title: item.title }),
       );
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("home.approveFailed"));

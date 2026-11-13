@@ -17,8 +17,7 @@ export const BRAND = {
   liveTeamUrl: "https://nearpocket-ijustabi.vercel.app",
   liveAlias: "https://nearly-ijustabi.vercel.app",
   legacyAlias: "https://nearly-blue.vercel.app",
-  hackathonTracks: ["realworld", "agents"] as const,
-  /** Deployed testnet contract id (account created before rebrand — keep as-is). */
+  /** Current default testnet contract. Override with NEXT_PUBLIC_AGENT_POLICY_CONTRACT. */
   testnetContractId: "nearly-7b1462.testnet",
 } as const;
 

@@ -95,7 +95,7 @@ export default function ActivityPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="text-base font-semibold">{t("activity.onChain", { network: deployed.network })}</h2>
+        <h2 className="text-base font-semibold">{t("activity.onChain")}</h2>
         <p className="mb-3 text-sm text-warm-600">{t("activity.onChainHint")}</p>
         <div className="divide-y divide-cream-300 rounded-3xl bg-cream-100 px-4 ring-1 ring-cream-300">
           {Object.entries(deployed.sampleTxs).map(([k, hash]) => (

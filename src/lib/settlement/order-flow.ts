@@ -10,7 +10,8 @@ import type { SettlementReceipt, SettlementRequest, SettlementStatus, ShopOrderM
  */
 
 export const MERCHANT_CHECKOUT_COMPLIANCE =
-  "Demo only. NEAR Intents only swaps tokens. The fiat leg is a licensed partner. " +
+  "Demo settlement. Intents quote integration: quotes can be live, execution is not run. " +
+  "NEAR Intents only swaps tokens. The fiat leg is a licensed partner. " +
   "Refunds come back in local currency via the partner (planned). " +
   "Crypto is not sent to the marketplace.";
 

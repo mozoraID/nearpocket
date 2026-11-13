@@ -82,13 +82,13 @@ export function createZeroXRampAdapter(opts: {
         });
         timeline.push({
           at: now(),
-          status: "paid",
-          detail: "Staging session opened (not a confirmed merchant credit).",
+          status: "sandbox_partner",
+          detail: "Sandbox payment (partner test mode). Not a confirmed merchant credit.",
         });
 
         return {
           request: req,
-          status: "paid",
+          status: "sandbox_partner",
           partnerRef: body.sessionRef,
           timeline,
           complianceNote:

@@ -119,9 +119,9 @@ function PayInner() {
       t("pay.signed"),
       payWith === "NEAR" ? t("pay.convertingNear") : t("pay.routingUsdc"),
       isCard ? t("pay.virtualCharged") : partnerLabel,
-      t("pay.paid"),
+      backend === "xendit-sandbox" ? t("pay.sandboxXendit") : t("pay.demoCompleted"),
     ];
-  }, [payWith, partnerLabel, pendingReq, t]);
+  }, [payWith, partnerLabel, pendingReq, backend, t]);
 
   async function run(req: SettlementRequest, title: string) {
     if (req.quote.totalUsdc > balanceUsdc) {
@@ -153,7 +153,7 @@ function PayInner() {
   function payQr() {
     if (!parsed || !quote) return;
     const req = buildQrisSettlement(parsed, quote);
-    if (payWith === "NEAR") req.note = "Paid from NEAR, converted to USDC via NEAR Intents (1Click quote).";
+    if (payWith === "NEAR") req.note = "Intents quote integration. The quote is live; swap execution is not run. Settlement stays demo or sandbox.";
     run(req, parsed.merchantName || t("pay.merchantFallback"));
   }
 
@@ -170,7 +170,7 @@ function PayInner() {
       quote: fx,
       destination: `card_link:${(wMerchant || "store").toLowerCase().replace(/\s+/g, "_")}`,
     });
-    req.note = `Worldwide pay via NEAR Intents → USDC → virtual card (demo). From ${payWith}.`;
+    req.note = `Intents quote integration. Card settlement is still a demo. From ${payWith}.`;
     run(req, wMerchant || "Online store");
   }
 

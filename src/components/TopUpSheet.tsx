@@ -10,7 +10,7 @@ import { formatUsdc } from "@/lib/fx/quote";
 const PRESETS = [10, 25, 50, 100];
 const METHODS = [
   { id: "qris", label: "Local QR", note: "Pay local fiat, get USDC (demo)" },
-  { id: "near", label: "From NEAR", note: "Swap via NEAR Intents" },
+  { id: "near", label: "From NEAR", note: "Intents quote integration (execution not run)" },
   { id: "card", label: "Card", note: "Debit / credit" },
 ] as const;
 
@@ -26,12 +26,12 @@ export function TopUpSheet({ open, onClose }: { open: boolean; onClose: () => vo
   async function topUp() {
     setBusy(true);
     try {
-      let n = "Demo top-up. No real money moved.";
+      let n = "Demo payment completed";
       if (method === "near") {
         const q = await (await fetch(`/api/quote?from=NEAR&amount=1`)).json();
         if (q?.toAmount) {
           const per = parseFloat(q.toAmount);
-          n = `${(amount / per).toFixed(3)} NEAR ≈ ${amount} USDC (${q.real ? "live 1Click quote" : "estimate"}). Swap not executed on testnet.`;
+          n = `Demo payment completed. Intents quote integration: ${(amount / per).toFixed(3)} NEAR ≈ ${amount} USDC (${q.real ? "live quote" : "estimate"}). Execution is not run.`;
         }
       }
       await new Promise((r) => setTimeout(r, 600));

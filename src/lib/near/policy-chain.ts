@@ -1,38 +1,54 @@
 "use client";
 
 /**
- * Shop and policy calls that should be gasless on testnet.
+ * Shop and policy calls for the connected wallet.
  *
- * NEP-366 sets predecessor to the account that signed the delegate, not the
- * relayer. approve_spend, queue_item, set_item_status, set_policy, and
- * upsert_plan still require that account to be the contract owner. A
- * different testnet account is not asked to sign those methods. request_spend
- * is open to any account, but it panics unless the owner has already queued
- * the item, so this client only sends it together with queue_item from the
- * owner. No contract change is required for that.
+ * On the per-account contract, set_policy, queue_item, request_spend, and
+ * approve_spend all run as predecessor_account_id. A new wallet does not
+ * need the contract admin. request_spend locks that wallet's escrow, and
+ * approve_spend is what releases USDC to the settlement account.
  *
- * Buy now sends queue_item and approve_spend, not request_spend. With
- * require_approval off, request_spend would already count the spend and
- * approve_spend would count it again.
+ * The previous single-owner contract has no escrow. Those calls are not
+ * sent; the UI shows a limitation note instead.
  */
 import { useNearPocketStore } from "@/lib/store";
 import { numberToUsdc6 } from "./contract";
 import { NEAR_CONFIG } from "./config";
 import { submitContractCalls, type ChainResult, type ContractCall } from "./gasless";
-import { DEFAULT_FUNCTION_GAS, isOwnerOnlyMethod } from "./relay-allowlist";
+import { DEFAULT_FUNCTION_GAS, SPEND_FUNCTION_GAS } from "./relay-allowlist";
 import type { SpendPolicy } from "@/lib/agent/policy";
 
-export type { ChainResult };
+export type { ChainResult, ContractCall };
 
-async function fetchContractOwner(): Promise<string | null> {
+const SPEND_GAS_METHODS = new Set(["request_spend", "approve_spend", "withdraw", "reject_spend"]);
+
+interface ChainAccount {
+  version: number | null;
+  legacy: boolean;
+  escrow: { available_usdc_6?: string; locked_usdc_6?: string } | null;
+}
+
+async function fetchChainAccount(accountId: string): Promise<ChainAccount | null> {
   try {
-    const res = await fetch("/api/contract");
+    const res = await fetch(`/api/contract?account=${encodeURIComponent(accountId)}`);
     if (!res.ok) return null;
-    const data = (await res.json()) as { policy?: { owner?: unknown } };
-    return typeof data.policy?.owner === "string" ? data.policy.owner : null;
+    return (await res.json()) as ChainAccount;
   } catch {
     return null;
   }
+}
+
+function asUnits(value: unknown): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return BigInt(Math.round(value));
+  if (typeof value === "string" && value.trim()) {
+    try {
+      return BigInt(value);
+    } catch {
+      return 0n;
+    }
+  }
+  return 0n;
 }
 
 function policyCall(methodName: string, args: Record<string, unknown>): ContractCall {
@@ -40,7 +56,7 @@ function policyCall(methodName: string, args: Record<string, unknown>): Contract
     receiverId: NEAR_CONFIG.agentPolicyContract,
     methodName,
     args,
-    gas: DEFAULT_FUNCTION_GAS,
+    gas: SPEND_GAS_METHODS.has(methodName) ? SPEND_FUNCTION_GAS : DEFAULT_FUNCTION_GAS,
     deposit: 0n,
   };
 }
@@ -57,14 +73,31 @@ export async function submitPolicyCalls(calls: ContractCall[]): Promise<ChainRes
       detailCode: NEAR_CONFIG.networkId !== "testnet" || st.accountId?.endsWith(".near") ? "not-testnet" : "demo",
     };
   }
-  const needsOwner = calls.some((call) => isOwnerOnlyMethod(call.methodName));
-  if (needsOwner) {
-    const owner = await fetchContractOwner();
-    if (!owner || !st.accountId || owner !== st.accountId) {
+  const info = await fetchChainAccount(st.accountId);
+  if (!info || info.legacy || info.version == null || info.version < 2) {
+    return { ok: false, mode: "skipped", detailCode: "legacy-contract" };
+  }
+  const requests = calls.filter((call) => call.methodName === "request_spend");
+  const approves = calls.filter((call) => call.methodName === "approve_spend");
+  if (requests.length || approves.length) {
+    const available = asUnits(info.escrow?.available_usdc_6);
+    const locked = asUnits(info.escrow?.locked_usdc_6);
+    const requestAmount = requests.reduce((sum, call) => sum + asUnits(call.args.amount_usdc_6), 0n);
+    const approveAmount = approves.reduce((sum, call) => sum + asUnits(call.args.amount_usdc_6), 0n);
+    if (requests.length && available < requestAmount) {
       return {
         ok: false,
         mode: "skipped",
-        detailCode: owner && st.accountId && owner !== st.accountId ? "owner-only" : "unavailable",
+        detailCode: "needs-escrow",
+        detail: (Number(available) / 1_000_000).toFixed(2),
+      };
+    }
+    if (!requests.length && approves.length && locked < approveAmount && available < approveAmount) {
+      return {
+        ok: false,
+        mode: "skipped",
+        detailCode: "needs-escrow",
+        detail: (Number(available) / 1_000_000).toFixed(2),
       };
     }
   }
@@ -99,7 +132,11 @@ export function shopApproveCalls(item: { id: string; amountUsdc: number }): Cont
   ];
 }
 
-/** Immediate purchase: queue the item, then approve it. Does not also request_spend. */
+export function shopRejectCalls(item: { id: string }): ContractCall[] {
+  return [policyCall("reject_spend", { id: item.id })];
+}
+
+/** Immediate purchase: queue, lock escrow, then release it. Does not count the spend twice. */
 export function shopBuyCalls(item: {
   id: string;
   title: string;
@@ -114,6 +151,7 @@ export function shopBuyCalls(item: {
       category: item.category.slice(0, 64) || "shopping",
       target_usdc_6: amount,
     }),
+    policyCall("request_spend", { id: item.id, amount_usdc_6: amount }),
     policyCall("approve_spend", { id: item.id, amount_usdc_6: amount, plan_id: null }),
   ];
 }

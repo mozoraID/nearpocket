@@ -118,7 +118,14 @@ async function signedGetPolicy(sender, contract) {
   const delegate = buildDelegateAction({
     senderId: sender.accountId,
     receiverId: contract,
-    actions: [actions.functionCall("get_policy", {}, 30_000_000_000_000n, 0n)],
+    actions: [
+      actions.functionCall(
+        "get_policy",
+        { account_id: sender.accountId },
+        30_000_000_000_000n,
+        0n,
+      ),
+    ],
     nonce: BigInt(accessKey.nonce) + 1n,
     maxBlockHeight: BigInt(block.header.height) + 100n,
     publicKey: keyPair.getPublicKey(),

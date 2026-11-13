@@ -113,19 +113,19 @@ export async function fetchPolicyOwner(contractId: string): Promise<string> {
     request_type: "call_function",
     finality: "final",
     account_id: contractId,
-    method_name: "get_policy",
+    method_name: "get_config",
     args_base64: args,
   });
   const bytes = result?.result;
-  if (!bytes?.length) throw new RelayHttpError(400, "could not confirm the contract owner");
+  if (!bytes?.length) throw new RelayHttpError(400, "could not confirm the contract admin");
   let parsed: { owner?: unknown };
   try {
     parsed = JSON.parse(Buffer.from(bytes).toString("utf8")) as { owner?: unknown };
   } catch {
-    throw new RelayHttpError(400, "could not confirm the contract owner");
+    throw new RelayHttpError(400, "could not confirm the contract admin");
   }
   if (typeof parsed.owner !== "string" || !parsed.owner) {
-    throw new RelayHttpError(400, "could not confirm the contract owner");
+    throw new RelayHttpError(400, "could not confirm the contract admin");
   }
   ownerCache = { contractId, owner: parsed.owner, at: Date.now() };
   return parsed.owner;
@@ -197,7 +197,7 @@ export async function relaySignedDelegate(bytes: Uint8Array): Promise<RelayBroad
     const owner = await fetchPolicyOwner(validated.receiverId);
     if (validated.senderId !== owner) {
       throw new RelayValidationError(
-        "this method is owner-only, and the signing account is not the contract owner",
+        "this method is admin-only, and the signing account is not the contract admin",
       );
     }
   }
