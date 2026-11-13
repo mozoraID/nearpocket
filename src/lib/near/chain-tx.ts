@@ -21,6 +21,8 @@ export interface ChainTxNotice extends PendingChain {
   /** False when the hash exists but a receipt failed. */
   ok?: boolean;
   error?: string;
+  /** Every transaction in this user action, oldest first. */
+  steps?: { methodName: string; txHash: string; title: string; ok: boolean }[];
 }
 
 export function rememberPending(action: PendingChain) {
@@ -77,24 +79,35 @@ export function clearOpenTx() {
 }
 
 export function readSeenTx(): string | null {
+  const seen = readSeen();
+  return seen[seen.length - 1] || null;
+}
+
+function readSeen(): string[] {
   try {
-    return sessionStorage.getItem(SEEN_KEY);
+    const raw = sessionStorage.getItem(SEEN_KEY);
+    if (!raw) return [];
+    if (raw.startsWith("[")) {
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    }
+    return [raw];
   } catch {
-    return null;
+    return [];
   }
 }
 
 function alreadySeen(hash: string): boolean {
-  try {
-    return sessionStorage.getItem(SEEN_KEY) === hash;
-  } catch {
-    return false;
-  }
+  return readSeen().includes(hash);
 }
 
-function markSeen(hash: string) {
+function markSeen(hashes: string[]) {
   try {
-    sessionStorage.setItem(SEEN_KEY, hash);
+    const next = [...readSeen()];
+    for (const hash of hashes) {
+      if (!next.includes(hash)) next.push(hash);
+    }
+    sessionStorage.setItem(SEEN_KEY, JSON.stringify(next.slice(-40)));
   } catch {
     /* ignore */
   }
@@ -108,30 +121,64 @@ const KIND: Record<ChainActionKind, ActivityKind> = {
   reject: "agent",
 };
 
-/** Record the transaction and tell the wallet shell to open the receipt. */
+/** Record every transaction in the action and open one receipt that lists them. */
 export function publishChainTx(notice: ChainTxNotice) {
-  if (!notice.txHash || alreadySeen(notice.txHash)) return;
-  markSeen(notice.txHash);
+  const steps = notice.steps?.length
+    ? notice.steps
+    : notice.txHash
+      ? [{ methodName: "", txHash: notice.txHash, title: notice.title, ok: notice.ok !== false }]
+      : [];
+  const fresh = steps.filter((step) => step.txHash && !alreadySeen(step.txHash));
+  window.dispatchEvent(new CustomEvent("nearpocket-balances-refresh"));
+  if (!fresh.length) return;
+  markSeen(fresh.map((step) => step.txHash));
   clearPending();
   clearOpenTx();
-  const failed = notice.ok === false;
-  useNearPocketStore.getState().logActivity({
-    kind: KIND[notice.kind],
-    title: notice.title,
-    detail: failed ? notice.error || notice.detail : notice.detail,
-    status: failed ? "failed" : "onchain",
-    amountUsdc: notice.amountUsdc,
-    direction: notice.direction,
-    txHash: notice.txHash,
-  });
-  window.dispatchEvent(new CustomEvent("nearpocket-balances-refresh"));
-  window.dispatchEvent(new CustomEvent<ChainTxNotice>("nearpocket-chain-tx", { detail: notice }));
+  for (const step of fresh) {
+    const failed = step.ok === false;
+    useNearPocketStore.getState().logActivity({
+      kind: KIND[notice.kind],
+      title: step.title || notice.title,
+      detail: failed ? notice.error || notice.detail : notice.detail,
+      status: failed ? "failed" : "onchain",
+      amountUsdc: notice.amountUsdc,
+      direction: notice.direction,
+      txHash: step.txHash,
+    });
+  }
+  window.dispatchEvent(new CustomEvent<ChainTxNotice>("nearpocket-chain-tx", { detail: { ...notice, steps: fresh } }));
 }
 
-export function finishPending(txHash: string | undefined, outcome?: { ok: boolean; error?: string }) {
-  if (!txHash) return;
+export function finishPending(
+  txHash: string | undefined,
+  outcome?: {
+    ok: boolean;
+    error?: string;
+    steps?: { methodName: string; txHash: string; title?: string; ok?: boolean }[];
+  },
+) {
   const pending = readPending();
   if (!pending) return;
+  const steps = (outcome?.steps?.length
+    ? outcome.steps
+    : txHash
+      ? [{ methodName: "", txHash, ok: outcome?.ok }]
+      : []
+  )
+    .filter((step) => step.txHash)
+    .map((step) => ({
+      methodName: step.methodName,
+      txHash: step.txHash,
+      title: step.title || pending.title,
+      ok: step.ok !== false,
+    }));
+  if (!steps.length) return;
   const ok = outcome?.ok !== false;
-  publishChainTx({ ...pending, txHash, ok, error: ok ? undefined : outcome?.error });
+  publishChainTx({
+    ...pending,
+    txHash: steps[steps.length - 1]?.txHash || txHash || "",
+    ok,
+    error: ok ? undefined : outcome?.error,
+    steps,
+  });
 }

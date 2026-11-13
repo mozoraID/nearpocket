@@ -11,7 +11,8 @@ import type { WalletBalances } from "./chain-types";
 export type { ChainSpendRequest, WalletBalances } from "./chain-types";
 
 const memory = new Map<string, WalletBalances>();
-let inflight: { accountId: string; promise: Promise<WalletBalances | null> } | null = null;
+let inflight: { accountId: string; promise: Promise<WalletBalances | null>; gen: number } | null = null;
+let fetchGen = 0;
 
 function cacheKey(accountId: string) {
   return `nearpocket-bal:${accountId}`;
@@ -50,10 +51,11 @@ function withStale(balances: WalletBalances | null): WalletBalances | null {
   return { ...balances, stale: true };
 }
 
-/** One in-flight read per account. A failed read returns the last good value. */
-export async function loadWalletBalances(accountId: string): Promise<WalletBalances | null> {
+/** One in-flight read per account. `fresh` starts a new read after a confirmed transaction. */
+export async function loadWalletBalances(accountId: string, opts?: { fresh?: boolean }): Promise<WalletBalances | null> {
   if (!accountId) return null;
-  if (inflight?.accountId === accountId) return inflight.promise;
+  if (!opts?.fresh && inflight?.accountId === accountId) return inflight.promise;
+  const gen = ++fetchGen;
   const task: { promise: Promise<WalletBalances | null> } = {
     promise: Promise.resolve(null),
   };
@@ -77,16 +79,18 @@ export async function loadWalletBalances(accountId: string): Promise<WalletBalan
           return withStale(cached);
         }
       }
+      if (gen !== fetchGen) return readCachedBalances(accountId);
       const fresh = { ...data, stale: false };
       writeCachedBalances(accountId, fresh);
       return fresh;
     } catch {
+      if (gen !== fetchGen) return readCachedBalances(accountId);
       return withStale(readCachedBalances(accountId));
     } finally {
-      if (inflight?.promise === task.promise) inflight = null;
+      if (inflight?.gen === gen) inflight = null;
     }
   })();
-  inflight = { accountId, promise: task.promise };
+  inflight = { accountId, promise: task.promise, gen };
   return task.promise;
 }
 
@@ -98,8 +102,12 @@ async function runPending(pending: PendingChain, run: () => Promise<ChainResult>
   rememberPending(pending);
   try {
     const result = await run();
-    if (result.txHash) {
-      finishPending(result.txHash, { ok: result.ok && result.success !== false, error: result.detail });
+      if (result.txHash || result.steps?.length) {
+      finishPending(result.txHash, {
+        ok: result.ok && result.success !== false,
+        error: result.detail,
+        steps: result.steps,
+      });
     } else clearPending();
     return result;
   } catch (error) {

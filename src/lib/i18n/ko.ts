@@ -490,6 +490,7 @@ export const ko: Dict = {
   "escrow.deposited": "에스크로에 {amount} USDC를 예치했습니다",
   "escrow.withdrew": "에스크로에서 {amount} USDC를 출금했습니다",
   "escrow.requested": "{title} 승인을 요청했습니다",
+  "escrow.queued": "{title}을 대기열에 넣었습니다",
   "escrow.approved": "{title}을 승인했습니다",
   "escrow.rejected": "{title}을 거절했습니다",
   "escrow.notEnoughWallet": "이 지갑의 USDC가 부족합니다.",

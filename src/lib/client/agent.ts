@@ -48,7 +48,7 @@ async function blockNewRequest(accountId: string, item: WaitlistItem) {
 }
 
 /** Queue the item and lock escrow when this wallet can spend. */
-export async function requestWaitlistOnChain(item: WaitlistItem, title: string): Promise<AgentChainOutcome> {
+export async function requestWaitlistOnChain(item: WaitlistItem, title: string, queueTitle?: string): Promise<AgentChainOutcome> {
   const st = useNearPocketStore.getState();
   if (st.demoMode || !st.accountId || st.accountId === "demo.local") {
     st.updateWaitlist(item.id, { status: "awaiting_approval" });
@@ -85,8 +85,15 @@ export async function requestWaitlistOnChain(item: WaitlistItem, title: string):
       ok: confirmed,
       completedMethods: chain.completedMethods,
     });
-    if (chain.txHash) {
-      finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
+    if (chain.steps?.length || chain.txHash) {
+      finishPending(chain.txHash, {
+        ok: confirmed,
+        error: chain.detail,
+        steps: (chain.steps || []).map((step) => ({
+          ...step,
+          title: step.methodName === "queue_item" && queueTitle ? queueTitle : title,
+        })),
+      });
     } else clearPending();
     if (effect.waitlistStatus) {
       st.updateWaitlist(item.id, {
@@ -149,8 +156,9 @@ export async function approveWaitlistItem(
       );
       const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
       const effect = chainEffects({ action: "approve", ok: confirmed });
-      if (chain.txHash) finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
-      else clearPending();
+      if (chain.steps?.length || chain.txHash) {
+        finishPending(chain.txHash, { ok: confirmed, error: chain.detail, steps: chain.steps });
+      } else clearPending();
       if (effect.waitlistStatus) {
         st.updateWaitlist(item.id, {
           status: effect.waitlistStatus,
@@ -216,8 +224,9 @@ export async function rejectWaitlistItem(item: WaitlistItem, chainTitle?: string
       const chain = await submitPolicyCalls(shopRejectCalls({ id: item.id }));
       const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
       const effect = chainEffects({ action: "reject", ok: confirmed });
-      if (chain.txHash) finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
-      else clearPending();
+      if (chain.steps?.length || chain.txHash) {
+        finishPending(chain.txHash, { ok: confirmed, error: chain.detail, steps: chain.steps });
+      } else clearPending();
       if (effect.waitlistStatus) {
         st.updateWaitlist(item.id, { status: effect.waitlistStatus, agentReason: "Rejected by you." });
         st.dismissWatching(item.title);

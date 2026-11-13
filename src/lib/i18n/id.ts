@@ -491,6 +491,7 @@ export const id: Dict = {
   "escrow.deposited": "Menyetor {amount} USDC ke escrow",
   "escrow.withdrew": "Menarik {amount} USDC dari escrow",
   "escrow.requested": "Meminta persetujuan untuk {title}",
+  "escrow.queued": "Mengantrekan {title}",
   "escrow.approved": "Menyetujui {title}",
   "escrow.rejected": "Menolak {title}",
   "escrow.notEnoughWallet": "USDC di dompet ini tidak cukup.",

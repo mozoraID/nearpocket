@@ -490,6 +490,7 @@ export const th: Dict = {
   "escrow.deposited": "ฝาก {amount} USDC เข้าเอสโครว์",
   "escrow.withdrew": "ถอน {amount} USDC จากเอสโครว์",
   "escrow.requested": "ขออนุมัติสำหรับ {title}",
+  "escrow.queued": "เข้าคิว {title}",
   "escrow.approved": "อนุมัติ {title}",
   "escrow.rejected": "ปฏิเสธ {title}",
   "escrow.notEnoughWallet": "USDC ในวอลเล็ตนี้ไม่พอ",

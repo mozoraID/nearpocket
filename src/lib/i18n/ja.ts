@@ -490,6 +490,7 @@ export const ja: Dict = {
   "escrow.deposited": "{amount} USDC をエスクローへ入金しました",
   "escrow.withdrew": "エスクローから {amount} USDC を引き出しました",
   "escrow.requested": "{title} の承認をリクエストしました",
+  "escrow.queued": "{title} をキューに追加しました",
   "escrow.approved": "{title} を承認しました",
   "escrow.rejected": "{title} を却下しました",
   "escrow.notEnoughWallet": "このウォレットの USDC が足りません。",

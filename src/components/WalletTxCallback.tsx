@@ -77,6 +77,7 @@ export function WalletTxCallback() {
         onClose={() => setNotice(null)}
         title={notice?.title || ""}
         hash={notice?.txHash || ""}
+        steps={notice?.steps}
         error={notice?.ok === false ? notice.error || t("tx.failed") : undefined}
       />
     </>
