@@ -29,16 +29,16 @@ Storage, roughly: one request is about 200 bytes (id, amount, status, expiry, an
 cargo +stable build --target wasm32-unknown-unknown --release
 cp target/wasm32-unknown-unknown/release/nearly_agent_policy.wasm res/nearly_agent_policy.wasm
 
-near deploy pocket.nearpocket.testnet res/nearly_agent_policy.wasm --networkId testnet
-near call pocket.nearpocket.testnet new \
+near deploy escrow.nearpocket.testnet res/nearly_agent_policy.wasm --networkId testnet
+near call escrow.nearpocket.testnet new \
   '{"usdc_contract":"usdc.fakes.testnet","settlement_account":"settle.nearpocket.testnet"}' \
-  --accountId pocket.nearpocket.testnet --networkId testnet
+  --accountId escrow.nearpocket.testnet --networkId testnet
 near call usdc.fakes.testnet storage_deposit \
-  '{"account_id":"pocket.nearpocket.testnet"}' \
-  --accountId pocket.nearpocket.testnet --deposit 0.0125 --networkId testnet
+  '{"account_id":"escrow.nearpocket.testnet"}' \
+  --accountId escrow.nearpocket.testnet --deposit 0.0125 --networkId testnet
 near call usdc.fakes.testnet storage_deposit \
   '{"account_id":"settle.nearpocket.testnet"}' \
-  --accountId pocket.nearpocket.testnet --deposit 0.0125 --networkId testnet
+  --accountId escrow.nearpocket.testnet --deposit 0.0125 --networkId testnet
 ```
 
 `new` arguments:
@@ -46,15 +46,15 @@ near call usdc.fakes.testnet storage_deposit \
 | Arg | Example |
 | --- | --- |
 | `usdc_contract` | `usdc.fakes.testnet` |
-| `settlement_account` | `pocket.nearpocket.testnet` |
+| `settlement_account` | `settle.nearpocket.testnet` |
 
-The live deploy is `pocket.nearpocket.testnet` with settlement `settle.nearpocket.testnet`. `new` refuses a settlement account equal to the contract itself, because a token transfer to itself would fail. The app default is `pocket.nearpocket.testnet`; override with `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`.
+The live deploy is `escrow.nearpocket.testnet` with settlement `settle.nearpocket.testnet` (proof: `docs/escrow-proof.md`). `new` refuses a settlement account equal to the contract itself, because a token transfer to itself would fail. The app default is `escrow.nearpocket.testnet`; override with `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`.
 
 A user deposits with the token, not with `new`:
 
 ```bash
 near call usdc.fakes.testnet ft_transfer_call \
-  '{"receiver_id":"pocket.nearpocket.testnet","amount":"1000000","msg":""}' \
+  '{"receiver_id":"escrow.nearpocket.testnet","amount":"1000000","msg":""}' \
   --accountId <wallet.testnet> --depositYocto 1 --gas 100000000000000 --networkId testnet
 ```
 
