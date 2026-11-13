@@ -35,9 +35,12 @@ import type { WaitlistItem } from "@/lib/agent/policy";
 import { buildCardSettlement, type SettlementReceipt } from "@/lib/settlement";
 import type { FxQuote } from "@/lib/fx/quote";
 import { settleAndRecord } from "@/lib/client/pay";
-import { approveWaitlistItem, recheckWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
+import { approveWaitlistItem, recheckWaitlistItem, rejectWaitlistItem, requestWaitlistOnChain } from "@/lib/client/agent";
+import { EscrowPanel } from "@/components/EscrowPanel";
+import { SpendDecision } from "@/components/SpendDecision";
+import { useChainBalances } from "@/hooks/useChainBalances";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
-import { shopBuyCalls, shopRequestCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
+import { shopBuyCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
 import { trySetPolicyOnChain } from "@/lib/near/set-policy";
 import { useT } from "@/lib/i18n";
 import { AgentChatInline } from "@/components/agent/AgentChatInline";
@@ -111,6 +114,7 @@ export default function ShopPage() {
   const [showAll, setShowAll] = useState(false);
   const [policyMsg, setPolicyMsg] = useState<string | null>(null);
   const [addressOpen, setAddressOpen] = useState(false);
+  const { balances, real, refresh } = useChainBalances();
 
   useEffect(() => {
     setMounted(true);
@@ -137,7 +141,11 @@ export default function ShopPage() {
       const data = await (
         await fetch(`/api/marketplaces?q=${encodeURIComponent(term)}&only=${encodeURIComponent(only)}`)
       ).json();
-      setOffers(((data.offers || []) as MarketplaceOffer[]).filter((o) => o.inStock).slice(0, 16));
+      const found = ((data.offers || []) as MarketplaceOffer[])
+        .filter((o) => o.inStock)
+        .sort((a, b) => a.priceUsdc - b.priceUsdc)
+        .slice(0, 16);
+      setOffers(found);
     } catch {
       setOffers([]);
     } finally {
@@ -172,7 +180,7 @@ export default function ShopPage() {
       marketplace: mLabel,
       mocked: best?.mocked ?? true,
       url: best?.productUrl || best?.url,
-      status: within ? "awaiting_approval" : "watching",
+      status: within && (demoMode || !accountId || accountId === "demo.local") ? "awaiting_approval" : within ? "ready" : "watching",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       agentReason: within
@@ -194,23 +202,14 @@ export default function ShopPage() {
     });
     setAskFor(null);
     setMsg(within ? t("shop.foundMsg") : t("shop.watchingMsg"));
-    void submitPolicyCalls(
-      shopRequestCalls({
-        id: queued.id,
-        title: queued.title,
-        category: queued.category,
-        amountUsdc: queued.currentPriceUsdc,
-        withinBudget: within,
-      }),
-    )
-      .then((result) => {
-        if (result.mode === "gasless" && result.txHash) setMsg(t("receipt.gasCovered"));
-        else {
+    if (within && accountId && accountId !== "demo.local" && !demoMode) {
+      void requestWaitlistOnChain(queued, t("escrow.requested", { title: queued.title })).then((result) => {
+        if (result.kind === "chain" && !result.txHash) {
           const note = chainMessage(t, result.detailCode, result.detail);
-          if (note && !demoMode) setMsg(note);
+          if (note) setMsg(note);
         }
-      })
-      .catch(() => null);
+      });
+    }
     setTimeout(() => document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
@@ -272,10 +271,19 @@ export default function ShopPage() {
     try {
       const result = await fn();
       if (result && typeof result === "object") {
-        const chain = result as { gasCovered?: boolean; chainNote?: string; chainDetail?: string };
-        if (chain.gasCovered) setMsg(t("receipt.gasCovered"));
+        const chain = result as {
+          kind?: string;
+          gasCovered?: boolean;
+          chainNote?: string;
+          chainDetail?: string;
+          detailCode?: string;
+          detail?: string;
+          txHash?: string;
+        };
+        if (chain.txHash) setMsg(t("pay.onchain"));
+        else if (chain.gasCovered) setMsg(t("receipt.gasCovered"));
         else {
-          const note = chainMessage(t, chain.chainNote, chain.chainDetail);
+          const note = chainMessage(t, chain.detailCode || chain.chainNote, chain.detail || chain.chainDetail);
           if (note) setMsg(note);
         }
       }
@@ -301,7 +309,9 @@ export default function ShopPage() {
     setLimitsOpen(false);
   }
 
-  const items = mounted ? waitlist.filter((w) => w.status !== "cancelled") : [];
+  const items = mounted
+    ? waitlist.filter((w) => w.status !== "cancelled" && (demoMode || (w.notes !== "demo" && !w.id.startsWith("demo_"))))
+    : [];
   const daily = chain?.policy?.dailyLimitUsdc ?? policy.dailyLimitUsdc;
   const perItem = chain?.policy?.perItemMaxUsdc ?? policy.perItemMaxUsdc;
   const spent = mounted ? policy.spentTodayUsdc : 0;
@@ -424,8 +434,34 @@ export default function ShopPage() {
                     <button type="button" className="h-11 rounded-full bg-ink text-sm font-semibold text-cream-100" onClick={() => { setBuyReceipt(null); setBuyOffer(o); }}>
                       {t("shop.buyNow")}
                     </button>
-                    <button type="button" className="btn-outline !min-h-11" onClick={() => openAsk(o.title.split(" · ")[0], o)}>
-                      {t("shop.askAgentBtn")}
+                    <button
+                      type="button"
+                      className="btn-outline !min-h-11"
+                      disabled={busy === o.id}
+                      onClick={() =>
+                        act(o.id, async () => {
+                          const id = `wl_${Date.now().toString(36)}`;
+                          const item: WaitlistItem = {
+                            id,
+                            title: o.title.split(" · ")[0],
+                            merchant: o.merchant,
+                            category: categoryFor(o.title),
+                            targetPriceUsdc: o.priceUsdc,
+                            currentPriceUsdc: o.priceUsdc,
+                            maxBudgetUsdc: o.priceUsdc,
+                            marketplace: metaFor(o.marketplace)?.label || o.marketplace,
+                            mocked: o.mocked,
+                            url: o.productUrl || o.url,
+                            status: demoMode ? "awaiting_approval" : "ready",
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                          };
+                          addWaitlist(item);
+                          return requestWaitlistOnChain(item, t("escrow.requested", { title: item.title }));
+                        })
+                      }
+                    >
+                      {t("shop.requestApproval")}
                     </button>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-2">
@@ -487,32 +523,30 @@ export default function ShopPage() {
                   <span className="text-warm-600">{t("shop.budgetAmount", { amount: (w.maxBudgetUsdc ?? w.targetPriceUsdc).toFixed(2) })}</span>
                 </div>
                 {w.agentReason && <p className="mt-2 text-xs text-warm-600">{w.agentReason}</p>}
-                {(w.status === "awaiting_approval" || w.status === "ready") && (
+                {w.status === "awaiting_approval" && (
                   <p className="mt-2 text-xs text-warm-600">
-                    {shipLine ? t("shop.shipTo", { address: shipLine }) : t("shop.needAddress")}
+                    {shipLine ? t("shop.shipTo", { address: shipLine }) : t("shop.addressAtCheckout")}
                   </p>
                 )}
                 <div className="mt-3 flex gap-2">
-                  {w.status === "awaiting_approval" || w.status === "ready" ? (
-                    <>
-                      {!shipAddress ? (
-                        <button type="button" className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100" onClick={() => setAddressOpen(true)}>
-                          {t("address.add")}
-                        </button>
-                      ) : (
-                      <button
-                        type="button"
-                        className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100 disabled:opacity-40"
-                        disabled={busy === w.id || policy.paused}
-                        onClick={() => act(w.id, () => approveWaitlistItem(w))}
-                      >
-                        {busy === w.id ? t("home.paying") : `${t("home.approve")} ${w.currentPriceUsdc.toFixed(2)}`}
-                      </button>
-                      )}
-                      <button type="button" className="btn-outline !min-h-11 flex-1" onClick={() => rejectWaitlistItem(w)}>
-                        {t("home.reject")}
-                      </button>
-                    </>
+                  {w.status === "ready" ? (
+                    <button
+                      type="button"
+                      className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100 disabled:opacity-40"
+                      disabled={busy === w.id}
+                      onClick={() =>
+                        act(w.id, () => requestWaitlistOnChain(w, t("escrow.requested", { title: w.title })))
+                      }
+                    >
+                      {busy === w.id ? t("home.paying") : t("shop.requestApproval")}
+                    </button>
+                  ) : w.status === "awaiting_approval" ? (
+                    <SpendDecision
+                      item={w}
+                      busy={busy === w.id || policy.paused}
+                      onApprove={() => act(w.id, () => approveWaitlistItem(w, t("escrow.approved", { title: w.title })))}
+                      onReject={() => act(w.id, () => rejectWaitlistItem(w, t("escrow.rejected", { title: w.title })))}
+                    />
                   ) : ["watching", "queued", "searching"].includes(w.status) ? (
                     <button
                       type="button"
@@ -583,6 +617,7 @@ export default function ShopPage() {
             </span>
             <ExternalLink className="h-4 w-4" />
           </a>
+          {real && balances && <EscrowPanel balances={balances} onRefresh={() => void refresh()} />}
         </div>
       </section>
 

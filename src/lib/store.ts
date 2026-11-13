@@ -53,6 +53,8 @@ export interface ActivityEntry {
   direction?: "in" | "out";
   link?: { label: string; href: string };
   receiptId?: string;
+  /** Set only when this activity row is a transaction this action sent. */
+  txHash?: string;
 }
 
 export interface VirtualCard {
@@ -178,7 +180,12 @@ export const useNearPocketStore = create<NearPocketState>()(
         });
       },
       connectWallet: (accountId, method = "selector") =>
-        set({ accountId, demoMode: false, authMethod: method }),
+        set({
+          accountId,
+          demoMode: false,
+          authMethod: method,
+          waitlist: get().waitlist.filter((w) => w.notes !== "demo" && !w.id.startsWith("demo_")),
+        }),
       disconnect: () => set({ accountId: null, demoMode: true, authMethod: "demo" }),
       setPolicy: (p) =>
         set({ policy: refreshDaily({ ...get().policy, ...p }) }),
@@ -229,6 +236,7 @@ export const useNearPocketStore = create<NearPocketState>()(
       },
       setCard: (patch) => set({ card: { ...get().card, ...patch } }),
       ensureDemoWaitlist: () => {
+        if (!get().demoMode) return;
         if (get().waitlist.some((w) => w.status === "awaiting_approval")) return;
         if (get().waitlist.some((w) => w.notes === "demo" || w.id.startsWith("demo_"))) return;
         const seed = demoWaitlistFor(get().displayCurrency || "USD");
