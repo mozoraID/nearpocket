@@ -1,6 +1,7 @@
 import type { ChainSpendRequest } from "./chain-types";
 import { NEAR_CONFIG } from "./config";
 import { usdc6ToNumber, viewOnContract } from "./contract";
+import { mapSpendRequestView } from "./request-view";
 import { REQUEST_INDEX_PREFIX, requestIdFromIndexKey } from "./request-index";
 import { rpcCall } from "./rpc";
 
@@ -41,11 +42,26 @@ export async function listChainSpendRequests(accountId: string): Promise<{
 }> {
   const contractId = NEAR_CONFIG.agentPolicyContract;
   if (!contractId || !accountId) return { requests: [], settlementAccount: "" };
-  const [ids, config] = await Promise.all([
-    listAccountRequestIds(accountId, contractId),
-    viewOnContract(contractId, "get_config", {}).catch(() => null) as Promise<{ settlement_account?: string } | null>,
-  ]);
+  const config = (await viewOnContract(contractId, "get_config", {}).catch(() => null)) as {
+    settlement_account?: string;
+  } | null;
   const settlementAccount = config?.settlement_account || "";
+  try {
+    const page = await viewOnContract(contractId, "get_requests", {
+      account_id: accountId,
+      from_index: 0,
+      limit: 50,
+    });
+    if (Array.isArray(page)) {
+      const requests = page
+        .map((row) => mapSpendRequestView(row as Record<string, unknown>, settlementAccount))
+        .filter((row): row is ChainSpendRequest => Boolean(row));
+      return { requests, settlementAccount };
+    }
+  } catch {
+    /* The deployed v2 contract has no list method. Fall back to its storage index. */
+  }
+  const ids = await listAccountRequestIds(accountId, contractId);
   const requests = (
     await Promise.all(
       ids.slice(0, 40).map(async (id) => {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CameraOff, RefreshCw } from "lucide-react";
+import { classifyCameraError } from "@/lib/qris/scan";
 
 type ScanState = "starting" | "running" | "error";
 
@@ -75,12 +76,13 @@ export function QrScanner({ onResult }: { onResult: (raw: string) => void }) {
       } catch (e) {
         if (cancelled) return;
         const msg = e instanceof Error ? e.message : String(e);
+        const kind = classifyCameraError(msg);
         setError(
-          /denied|NotAllowed|Permission/i.test(msg)
-            ? "Camera access is blocked. Allow the camera in your browser settings, then try again."
-            : /NotFound|Requested device|no camera|Overconstrained/i.test(msg)
-              ? "No camera found on this device."
-              : msg || "Camera unavailable.",
+          kind === "permission"
+            ? "Camera access is blocked. Allow the camera, or upload a photo / paste the code below."
+            : kind === "missing"
+              ? "No camera found on this device. Upload a photo or paste the code below."
+              : msg || "Camera unavailable. Upload a photo or paste the code below.",
         );
         setState("error");
       }

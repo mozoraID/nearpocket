@@ -14,9 +14,13 @@ Each predecessor account gets its own policy, queue, plans, spend requests, and 
 - `reject_spend` and `expire_spend` return the lock to escrow. `withdraw` sends unlocked escrow back to the account.
 - `set_global_paused` blocks new locks and releases. Deposits and withdrawals stay open.
 
-`queue_item`, `request_spend`, `approve_spend`, and `reject_spend` require 0 attached deposit. Each account may have at most 20 open items and 20 open requests. The contract account pays the storage.
+`queue_item`, `request_spend`, `approve_spend`, and `reject_spend` require 0 attached deposit. Each account may have at most 20 open items, 20 open requests, and 20 resolved requests. The contract account pays the storage because users attach no NEAR.
 
-Redeploying this wasm onto an account that already ran `new` (including `pocket.nearpocket.testnet`) is safe. No fields were added to the contract or to stored account records, so existing escrow stays. Do not call `new` again.
+`request_spend` copies the current settlement account onto the request. `approve_spend` pays that stored account. `set_settlement_account` is owner-only and does not change requests that already exist.
+
+This wasm is not a redeploy of `pocket.nearpocket.testnet`. That account keeps the previous layout and its escrow. Deploy this file to a new account (`escrow.nearpocket.testnet` is the name used in `scripts/deploy-escrow.sh`). Do not call `new` on an account that already holds escrow.
+
+Storage, roughly: one request is about 200 bytes (id, amount, status, expiry, and the settlement account id) plus the trie key. NEAR stakes about 10^19 yoctoNEAR per byte, so 40 stored requests are on the order of 0.1 NEAR. The contract account's NEAR balance pays it. Caps keep that growth per wallet finite. `clear_resolved` lets the wallet drop resolved rows.
 
 ## Init
 
@@ -69,7 +73,9 @@ near call usdc.fakes.testnet ft_transfer_call \
 | `withdraw` | that account | Sends unlocked escrow back to the account |
 | `set_settlement_account` / `set_global_paused` | admin | Payout account and global pause |
 | `get_policy` / `get_escrow` / `get_request` / `get_item` / `get_plan` | view | Pass `account_id` |
-| `get_config` / `contract_version` | view | Admin, token, settlement, version `2` |
+| `get_requests` / `get_items` | view | One wallet, `from_index` + `limit` (max 50) |
+| `clear_resolved` | that account | Deletes that wallet's resolved requests |
+| `get_config` / `contract_version` | view | Admin, token, settlement, version `3` |
 
 ## Tests
 

@@ -49,4 +49,6 @@ next-env.d.ts
 .env*.local
 *.pem
 contracts/agent-policy/target/
+contracts/test-ft/target/
+contracts/escrow-sandbox/target/
 .nearly-credentials/
