@@ -16,6 +16,7 @@
  * Demo accounts never leave the device.
  */
 import { NEAR_CONFIG, explorerTxUrl } from "./config";
+import { confirmNearTransaction } from "./confirm-tx";
 import { getOrCreateFunctionCallKey } from "./local-access-key";
 import {
   BLOCK_HEIGHT_TTL,
@@ -39,7 +40,7 @@ export interface ChainResult {
   txHash?: string;
   explorerUrl?: string;
   success?: boolean;
-  detailCode?: "owner-only" | "legacy-contract" | "needs-escrow" | "demo" | "not-testnet" | "unavailable";
+  detailCode?: "owner-only" | "legacy-contract" | "needs-escrow" | "demo" | "not-testnet" | "unavailable" | "failed";
   detail?: string;
 }
 
@@ -133,7 +134,7 @@ async function nearRuntime(): Promise<NearRuntime> {
   return (await import("near-api-js")) as unknown as NearRuntime;
 }
 
-async function relayerConfigured(): Promise<boolean> {
+export async function relayerConfigured(): Promise<boolean> {
   try {
     const res = await fetch("/api/relay");
     if (!res.ok) return false;
@@ -239,7 +240,7 @@ async function buildSignedDelegate(
   return encoded;
 }
 
-async function signWithWallet(
+export async function signWithWallet(
   near: NearRuntime,
   wallet: SelectorWallet,
   accountId: string,
@@ -281,7 +282,7 @@ async function signWithWallet(
   }
 }
 
-async function signWithLocalKey(
+export async function signWithLocalKey(
   near: NearRuntime,
   wallet: SelectorWallet | null,
   accountId: string,
@@ -322,7 +323,7 @@ async function signWithLocalKey(
   });
 }
 
-async function postDelegate(signedDelegate: string): Promise<ChainResult> {
+export async function postDelegate(signedDelegate: string): Promise<ChainResult> {
   const res = await fetch("/api/relay", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -330,6 +331,7 @@ async function postDelegate(signedDelegate: string): Promise<ChainResult> {
   });
   const body = (await res.json().catch(() => ({}))) as {
     error?: string;
+    detail?: string;
     txHash?: string;
     explorerUrl?: string;
     success?: boolean;
@@ -338,12 +340,15 @@ async function postDelegate(signedDelegate: string): Promise<ChainResult> {
   if (!res.ok || !body.txHash) {
     return { ok: false, mode: "skipped", detail: body.error || "relay failed", detailCode: "unavailable" };
   }
+  const succeeded = body.success !== false;
   return {
-    ok: true,
+    ok: succeeded,
     mode: "gasless",
     txHash: body.txHash,
     explorerUrl: body.explorerUrl || explorerTxUrl(body.txHash),
-    success: body.success !== false,
+    success: succeeded,
+    detail: succeeded ? undefined : body.detail || body.error,
+    detailCode: succeeded ? undefined : "failed",
   };
 }
 
@@ -362,12 +367,18 @@ async function userPays(
       actions: callActions,
     });
     const txHash = readTxHash(outcome);
+    if (!txHash) {
+      return { ok: false, mode: "skipped", detailCode: "unavailable", detail: "no transaction hash" };
+    }
+    const verdict = await confirmNearTransaction(txHash, accountId);
     return {
-      ok: Boolean(txHash),
-      mode: txHash ? "user-paid" : "skipped",
+      ok: verdict.ok,
+      mode: "user-paid",
       txHash,
-      explorerUrl: txHash ? explorerTxUrl(txHash) : undefined,
-      success: Boolean(txHash),
+      explorerUrl: explorerTxUrl(txHash),
+      success: verdict.ok,
+      detail: verdict.ok ? undefined : verdict.error,
+      detailCode: verdict.ok ? undefined : "failed",
     };
   } catch (error) {
     return {
@@ -433,21 +444,8 @@ export async function submitContractCalls(
     ),
   );
   const wallet = await getSignedInWallet().catch(() => null);
-
-  const configured = await relayerConfigured();
-  if (configured) {
-    try {
-      const signed =
-        (wallet ? await signWithWallet(near, wallet, accountId, receiverId, callActions) : null) ??
-        (await signWithLocalKey(near, wallet, accountId, receiverId, callActions));
-      if (signed) {
-        const relayed = await postDelegate(signed);
-        if (relayed.ok && relayed.txHash) return relayed;
-      }
-    } catch {
-      /* fall through to a normal transaction */
-    }
-  }
-
+  // A function-call key (Meteor's key for this contract) cannot authorize a
+  // delegate action: the chain returns RequiresFullAccess. The same key can
+  // call these methods directly when the attached deposit is zero.
   return userPays(near, wallet, accountId, receiverId, callActions);
 }

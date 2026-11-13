@@ -72,6 +72,8 @@ export type AuthMethod = "demo" | "selector" | "local" | "privy";
 interface NearPocketState {
   activity: ActivityEntry[];
   logActivity: (e: Omit<ActivityEntry, "id" | "at"> & { at?: string }) => void;
+  /** Drop a still-open "watching / needs you" activity row for this item. */
+  dismissWatching: (title: string) => void;
   accountId: string | null;
   demoMode: boolean;
   authMethod: AuthMethod;
@@ -164,6 +166,13 @@ export const useNearPocketStore = create<NearPocketState>()(
             },
             ...get().activity,
           ].slice(0, 80),
+        }),
+      dismissWatching: (title) =>
+        set({
+          activity: get().activity.filter((entry) => {
+            if (entry.kind !== "agent" || !title || !entry.title.includes(title)) return true;
+            return entry.status === "onchain" || entry.status === "failed" || entry.status === "rejected" || entry.status === "purchased";
+          }),
         }),
       connectDemo: () => {
         const ccy = get().displayCurrency || "USD";

@@ -22,6 +22,8 @@ const DEFAULT_DAILY_USDC_6: u128 = 75_000_000;
 const DEFAULT_PER_ITEM_USDC_6: u128 = 30_000_000;
 /// Locked requests expire after one UTC day.
 const REQUEST_TTL_NS: u64 = 86_400 * 1_000_000_000;
+/// Open queue rows or spend requests one wallet may have. The contract account pays the storage.
+const MAX_OPEN_PER_ACCOUNT: u64 = 20;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(20);
 const GAS_FT_CALLBACK: Gas = Gas::from_tgas(25);
 
@@ -270,6 +272,7 @@ impl Contract {
         require_approval: Option<bool>,
         paused: Option<bool>,
     ) {
+        assert_zero_deposit();
         let user = env::predecessor_account_id();
         let mut account = self.load_account(&user);
         if let Some(v) = daily_limit_usdc_6 {
@@ -316,9 +319,21 @@ impl Contract {
     }
 
     pub fn queue_item(&mut self, id: String, title: String, category: String, target_usdc_6: U128) {
+        assert_zero_deposit();
         let user = env::predecessor_account_id();
         self.ensure_registered(&user);
         assert_id(&id);
+        let key = pair_key(&user, &id);
+        if self.items.get(&key).is_none() {
+            let open = self
+                .items
+                .iter()
+                .filter(|(item_key, item)| {
+                    key_belongs_to(item_key, &user) && item_is_open(&item.status)
+                })
+                .count() as u64;
+            assert!(open < MAX_OPEN_PER_ACCOUNT, "too many open items");
+        }
         self.items.insert(
             &pair_key(&user, &id),
             &WaitItem {
@@ -332,6 +347,7 @@ impl Contract {
     }
 
     pub fn set_item_status(&mut self, id: String, status: String) {
+        assert_zero_deposit();
         let user = env::predecessor_account_id();
         let key = pair_key(&user, &id);
         let mut item = self.items.get(&key).expect("item");
@@ -342,6 +358,7 @@ impl Contract {
     /// Lock `amount` from the caller's escrow. Approval still has to release it
     /// unless this account turned `require_approval` off.
     pub fn request_spend(&mut self, id: String, amount_usdc_6: U128) -> String {
+        assert_zero_deposit();
         let user = env::predecessor_account_id();
         let mut account = self.load_account(&user);
         self.assert_can_spend(&account);
@@ -363,6 +380,16 @@ impl Contract {
                 !matches!(existing.status.as_str(), "awaiting_approval" | "transferring"),
                 "request open"
             );
+        } else {
+            let open = self
+                .requests
+                .iter()
+                .filter(|(key, req)| {
+                    key_belongs_to(key, &user)
+                        && matches!(req.status.as_str(), "awaiting_approval" | "transferring")
+                })
+                .count() as u64;
+            assert!(open < MAX_OPEN_PER_ACCOUNT, "too many open requests");
         }
 
         account.escrow -= amount_usdc_6.0;
@@ -401,6 +428,7 @@ impl Contract {
         amount_usdc_6: U128,
         plan_id: Option<String>,
     ) -> Promise {
+        assert_zero_deposit();
         let user = env::predecessor_account_id();
         let account = self.load_account(&user);
         self.assert_can_spend(&account);
@@ -416,6 +444,7 @@ impl Contract {
     }
 
     pub fn reject_spend(&mut self, id: String) {
+        assert_zero_deposit();
         let user = env::predecessor_account_id();
         self.return_lock(&user, &id, "rejected", false);
     }
@@ -656,6 +685,22 @@ fn assert_id(id: &str) {
 
 fn clip(value: &str, max: usize) -> String {
     value.chars().take(max).collect()
+}
+
+fn item_is_open(status: &str) -> bool {
+    !matches!(status, "purchased" | "rejected" | "expired" | "failed" | "cancelled")
+}
+
+fn assert_zero_deposit() {
+    assert_eq!(env::attached_deposit().as_yoctonear(), 0, "zero deposit");
+}
+
+fn key_belongs_to(key: &[u8], account: &AccountId) -> bool {
+    if key.len() < 2 {
+        return false;
+    }
+    let len = u16::from_le_bytes([key[0], key[1]]) as usize;
+    key.len() >= 2 + len && &key[2..2 + len] == account.as_bytes()
 }
 
 fn unix_day() -> u64 {
@@ -1050,5 +1095,89 @@ mod tests {
         queue(&mut contract, ALICE, "earbuds", 1_000_000);
         switch(ALICE, DAY_NS);
         contract.request_spend("earbuds".into(), U128(1_000_000));
+    }
+
+    fn switch_attached(predecessor: &str, yocto: u128) {
+        let storage = near_sdk::mock::with_mocked_blockchain(|b| b.take_storage());
+        let ctx = VMContextBuilder::new()
+            .current_account_id(CONTRACT_ID.parse().unwrap())
+            .signer_account_id(predecessor.parse().unwrap())
+            .predecessor_account_id(predecessor.parse().unwrap())
+            .block_timestamp(DAY_NS)
+            .prepaid_gas(Gas::from_tgas(300))
+            .account_balance(NearToken::from_near(20))
+            .attached_deposit(NearToken::from_yoctonear(yocto))
+            .build();
+        near_sdk::env::set_blockchain_interface(MockedBlockchain::new(
+            ctx,
+            test_vm_config(),
+            RuntimeFeesConfig::test(),
+            Vec::new(),
+            storage,
+            HashMap::new(),
+            None,
+        ));
+    }
+
+    #[test]
+    fn request_with_zero_deposit_locks_escrow() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        queue(&mut contract, ALICE, "mug", 1_490_000);
+        switch_attached(ALICE, 0);
+        assert_eq!(
+            contract.request_spend("mug".into(), U128(1_490_000)),
+            "awaiting_approval"
+        );
+        let escrow = contract.get_escrow(ALICE.parse().unwrap());
+        assert_eq!(escrow.available_usdc_6.0, 510_000);
+        assert_eq!(escrow.locked_usdc_6.0, 1_490_000);
+        assert_eq!(
+            contract
+                .get_request(ALICE.parse().unwrap(), "mug".into())
+                .unwrap()
+                .status,
+            "awaiting_approval"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "zero deposit")]
+    fn request_rejects_an_attached_deposit() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        queue(&mut contract, ALICE, "mug", 1_000_000);
+        switch_attached(ALICE, 1);
+        contract.request_spend("mug".into(), U128(1_000_000));
+    }
+
+    #[test]
+    #[should_panic(expected = "too many open items")]
+    fn open_item_cap_is_enforced() {
+        let mut contract = setup();
+        for i in 0..MAX_OPEN_PER_ACCOUNT {
+            queue(&mut contract, ALICE, &format!("item-{i}"), 1);
+        }
+        queue(&mut contract, ALICE, "overflow", 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "too many open requests")]
+    fn open_request_cap_is_enforced() {
+        let mut contract = setup();
+        switch(ALICE, DAY_NS);
+        contract.set_policy(Some(U128(100_000_000)), Some(U128(100_000_000)), None, None);
+        deposit(&mut contract, ALICE, 100_000_000);
+        for i in 0..MAX_OPEN_PER_ACCOUNT {
+            let id = format!("req-{i}");
+            queue(&mut contract, ALICE, &id, 1);
+            switch(ALICE, DAY_NS);
+            contract.request_spend(id, U128(1));
+        }
+        switch(ALICE, DAY_NS);
+        contract.set_item_status("req-0".into(), "purchased".into());
+        queue(&mut contract, ALICE, "req-extra", 1);
+        switch(ALICE, DAY_NS);
+        contract.request_spend("req-extra".into(), U128(1));
     }
 }

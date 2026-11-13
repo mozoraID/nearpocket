@@ -493,4 +493,6 @@ export const ja: Dict = {
   "escrow.notEnoughEscrow": "ロックされていないエスクローが足りません。",
   "escrow.needAmount": "0 より大きい金額を入力してください。",
   "shop.requestApproval": "承認をリクエスト",
+  "tx.failed": "トランザクションが失敗しました",
+  "shop.purchasedDemo": "購入済み（デモの店舗）· USDC は NEAR testnet で解放されました",
 };

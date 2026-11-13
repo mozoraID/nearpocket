@@ -12,7 +12,7 @@ import { settleAndRecord } from "./pay";
 import { decorateShopCheckout } from "./shop-order";
 
 export type AgentChainOutcome =
-  | { kind: "chain"; txHash?: string; detailCode?: ChainResult["detailCode"]; detail?: string }
+  | { kind: "chain"; ok: boolean; txHash?: string; detailCode?: ChainResult["detailCode"]; detail?: string }
   | { kind: "demo"; gasCovered?: boolean; chainNote?: string; chainDetail?: string };
 
 /** Queue the item and lock escrow when this wallet can spend. */
@@ -38,13 +38,21 @@ export async function requestWaitlistOnChain(item: WaitlistItem, title: string):
         withinBudget: true,
       }),
     );
+    const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
     if (chain.txHash) {
-      finishPending(chain.txHash);
+      finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
+    } else clearPending();
+    if (confirmed) {
       st.updateWaitlist(item.id, { status: "awaiting_approval", currentPriceUsdc: item.currentPriceUsdc });
-    } else {
-      clearPending();
+      st.dismissWatching(item.title);
     }
-    return { kind: "chain", txHash: chain.txHash, detailCode: chain.detailCode, detail: chain.detail };
+    return {
+      kind: "chain",
+      ok: confirmed,
+      txHash: chain.txHash,
+      detailCode: confirmed ? chain.detailCode : chain.detailCode || "failed",
+      detail: chain.detail,
+    };
   } catch (error) {
     clearPending();
     throw error;
@@ -52,7 +60,11 @@ export async function requestWaitlistOnChain(item: WaitlistItem, title: string):
 }
 
 /** User approves an agent-found item: policy check → settle → mark purchased. */
-export async function approveWaitlistItem(item: WaitlistItem, chainTitle?: string): Promise<AgentChainOutcome> {
+export async function approveWaitlistItem(
+  item: WaitlistItem,
+  chainTitle?: string,
+  purchasedLabel?: string,
+): Promise<AgentChainOutcome> {
   const st = useNearPocketStore.getState();
   const price = item.currentPriceUsdc;
   const check = checkSpend(st.policy, price, item.category);
@@ -80,13 +92,23 @@ export async function approveWaitlistItem(item: WaitlistItem, chainTitle?: strin
     });
     try {
       const chain = await submitPolicyCalls(shopApproveCalls({ id: item.id, amountUsdc: price }));
-      if (chain.txHash) {
-        finishPending(chain.txHash);
-        st.updateWaitlist(item.id, { status: "purchased", agentReason: "Bought after your approval." });
-      } else {
-        clearPending();
+      const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
+      if (chain.txHash) finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
+      else clearPending();
+      if (confirmed) {
+        st.updateWaitlist(item.id, {
+          status: "purchased",
+          agentReason: item.mocked ? purchasedLabel || "Purchased (demo merchant)" : "Bought after your approval.",
+        });
+        st.dismissWatching(item.title);
       }
-      return { kind: "chain", txHash: chain.txHash, detailCode: chain.detailCode, detail: chain.detail };
+      return {
+        kind: "chain",
+        ok: confirmed,
+        txHash: chain.txHash,
+        detailCode: confirmed ? chain.detailCode : chain.detailCode || "failed",
+        detail: chain.detail,
+      };
     } catch (error) {
       clearPending();
       throw error;
@@ -136,19 +158,28 @@ export async function rejectWaitlistItem(item: WaitlistItem, chainTitle?: string
     });
     try {
       const chain = await submitPolicyCalls(shopRejectCalls({ id: item.id }));
-      if (chain.txHash) finishPending(chain.txHash);
+      const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
+      if (chain.txHash) finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
       else clearPending();
-      st.updateWaitlist(item.id, { status: "rejected", agentReason: "Rejected by you." });
-      return { kind: "chain", txHash: chain.txHash, detailCode: chain.detailCode, detail: chain.detail };
+      if (confirmed) {
+        st.updateWaitlist(item.id, { status: "rejected", agentReason: "Rejected by you." });
+        st.dismissWatching(item.title);
+      }
+      return {
+        kind: "chain",
+        ok: confirmed,
+        txHash: chain.txHash,
+        detailCode: confirmed ? chain.detailCode : chain.detailCode || "failed",
+        detail: chain.detail,
+      };
     } catch (error) {
       clearPending();
       throw error;
     }
   }
-  const chain = await submitPolicyCalls(shopRejectCalls({ id: item.id })).catch(() => null);
   st.updateWaitlist(item.id, { status: "rejected", agentReason: "Rejected by you." });
   st.logActivity({ kind: "agent", title: `You rejected: ${item.title}`, status: "rejected" });
-  return { kind: "demo", chainNote: chain?.detailCode === "owner-only" ? "owner-only" : undefined };
+  return { kind: "demo" };
 }
 
 /** Ask the agent to re-check the price (demo price tick from /api/agent). */

@@ -35,6 +35,25 @@ export async function GET(req: NextRequest) {
   } catch {
     registered = false;
   }
+  const requestIds = req.nextUrl.searchParams.getAll("request").slice(0, 20);
+  const requests: { id: string; status: string; amountUsdc: number }[] = [];
+  for (const id of requestIds) {
+    try {
+      const view = (await viewOnContract(NEAR_CONFIG.agentPolicyContract, "get_request", {
+        account_id: account,
+        id,
+      })) as { status?: string; amount_usdc_6?: string } | null;
+      if (view?.status) {
+        requests.push({
+          id,
+          status: view.status,
+          amountUsdc: usdc6ToNumber(view.amount_usdc_6 || 0),
+        });
+      }
+    } catch {
+      /* this id was never locked on chain */
+    }
+  }
   const escrow = await fetchOnChainEscrow(account);
   const availableRaw = escrow?.available_usdc_6 ?? "0";
   const lockedRaw = escrow?.locked_usdc_6 ?? "0";
@@ -50,5 +69,6 @@ export async function GET(req: NextRequest) {
     escrowLockedUsdc: usdc6ToNumber(lockedRaw),
     registered,
     minStorageYocto,
+    requests,
   });
 }

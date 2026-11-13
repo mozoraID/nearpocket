@@ -493,4 +493,6 @@ export const ko: Dict = {
   "escrow.notEnoughEscrow": "잠기지 않은 에스크로가 부족합니다.",
   "escrow.needAmount": "0보다 큰 금액을 입력하세요.",
   "shop.requestApproval": "승인 요청",
+  "tx.failed": "트랜잭션이 실패했습니다",
+  "shop.purchasedDemo": "구매됨 (데모 판매자) · USDC가 NEAR testnet에서 풀렸습니다",
 };

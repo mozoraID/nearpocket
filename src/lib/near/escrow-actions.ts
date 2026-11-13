@@ -15,11 +15,14 @@ export interface WalletBalances {
   minStorageYocto: string;
   usdcContract: string;
   policyContract: string;
+  requests?: { id: string; status: string; amountUsdc: number }[];
 }
 
-export async function fetchWalletBalances(accountId: string): Promise<WalletBalances | null> {
+export async function fetchWalletBalances(accountId: string, requestIds: string[] = []): Promise<WalletBalances | null> {
   try {
-    const res = await fetch(`/api/balances?account=${encodeURIComponent(accountId)}`);
+    const query = new URLSearchParams({ account: accountId });
+    for (const id of requestIds.slice(0, 20)) query.append("request", id);
+    const res = await fetch(`/api/balances?${query.toString()}`);
     if (!res.ok) return null;
     return (await res.json()) as WalletBalances;
   } catch {
@@ -31,8 +34,9 @@ async function runPending(pending: PendingChain, run: () => Promise<ChainResult>
   rememberPending(pending);
   try {
     const result = await run();
-    if (result.txHash) finishPending(result.txHash);
-    else clearPending();
+    if (result.txHash) {
+      finishPending(result.txHash, { ok: result.ok && result.success !== false, error: result.detail });
+    } else clearPending();
     return result;
   } catch (error) {
     clearPending();

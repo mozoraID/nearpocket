@@ -19,13 +19,16 @@ export default function HomePage() {
   const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
   const demoMode = useNearPocketStore((s) => s.demoMode);
   const waitlist = useNearPocketStore((s) => s.waitlist);
+  const updateWaitlist = useNearPocketStore((s) => s.updateWaitlist);
+  const dismissWatching = useNearPocketStore((s) => s.dismissWatching);
   const ensureDemoWaitlist = useNearPocketStore((s) => s.ensureDemoWaitlist);
   const { balances, loaded: balancesLoaded, real } = useChainBalances();
   const activity = useNearPocketStore((s) => s.activity);
   const addresses = useNearPocketStore((s) => s.addresses);
   const { localFromUsdc, rateLine, meta } = useDisplayFx();
   const [topUpOpen, setTopUpOpen] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<Record<string, true>>({});
+  const isPending = (id: string) => Boolean(pendingIds[id]);
   const [msg, setMsg] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const savedAddress = mounted ? defaultAddress(addresses) : null;
@@ -41,6 +44,26 @@ export default function HomePage() {
     if (mounted && demoMode) ensureDemoWaitlist();
   }, [mounted, demoMode, ensureDemoWaitlist]);
 
+  useEffect(() => {
+    if (!balances?.requests) return;
+    for (const req of balances.requests) {
+      const local = waitlist.find((item) => item.id === req.id);
+      if (!local || local.status !== "awaiting_approval") continue;
+      if (req.status === "purchased" || req.status === "rejected" || req.status === "expired" || req.status === "failed") {
+        const status =
+          req.status === "failed"
+            ? "ready"
+            : req.status === "purchased"
+              ? "purchased"
+              : req.status === "expired"
+                ? "expired"
+                : "rejected";
+        updateWaitlist(req.id, { status });
+        dismissWatching(local.title);
+      }
+    }
+  }, [balances, waitlist, updateWaitlist, dismissWatching]);
+
   const pending = waitlist.filter((w) => {
     if (w.status !== "awaiting_approval") return false;
     if (!demoMode && (w.notes === "demo" || w.id.startsWith("demo_"))) return false;
@@ -54,19 +77,16 @@ export default function HomePage() {
   async function approve(id: string) {
     const item = waitlist.find((w) => w.id === id);
     if (!item) return;
-    setBusyId(id);
+    setPendingIds((cur) => ({ ...cur, [id]: true }));
     setMsg(null);
     try {
-      const result = await approveWaitlistItem(item, t("escrow.approved", { title: item.title }));
+      const label = item.mocked ? t("shop.purchasedDemo") : t("escrow.approved", { title: item.title });
+      const result = await approveWaitlistItem(item, label, t("shop.purchasedDemo"));
       if (result.kind === "chain") {
         setMsg(
-          result.txHash
+          result.ok
             ? t("pay.onchain")
-            : result.detailCode === "needs-escrow"
-              ? t("shop.needsEscrow", { amount: result.detail || "0.00" })
-              : result.detailCode === "legacy-contract"
-                ? t("shop.chainLegacy")
-                : result.detail || t("home.approveFailed"),
+            : result.detail || t("tx.failed"),
         );
       } else {
         setMsg(result.gasCovered ? t("receipt.gasCovered") : t("home.bought", { title: item.title }));
@@ -74,7 +94,11 @@ export default function HomePage() {
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("home.approveFailed"));
     } finally {
-      setBusyId(null);
+      setPendingIds((cur) => {
+        const next = { ...cur };
+        delete next[id];
+        return next;
+      });
     }
   }
 
@@ -96,7 +120,7 @@ export default function HomePage() {
               </div>
               <p className="mt-1 font-semibold">{w.title}</p>
               <p className="text-sm text-cream-400">
-                {w.currentPriceUsdc.toFixed(2)} USDC · {w.marketplace || w.merchant}
+                {t("escrow.locked")} {(balances?.requests?.find((req) => req.id === w.id)?.amountUsdc ?? w.currentPriceUsdc).toFixed(2)} USDC · {w.marketplace || w.merchant}
                 {w.maxBudgetUsdc ? ` · ${t("home.budgetPart", { amount: w.maxBudgetUsdc })}` : ""}
               </p>
               {hasAddress ? (
@@ -106,15 +130,20 @@ export default function HomePage() {
               )}
               <SpendDecision
                 item={w}
-                busy={busyId === w.id}
+                busy={isPending(w.id)}
                 variant="cream"
                 onApprove={() => approve(w.id)}
                 onReject={async () => {
-                  setBusyId(w.id);
+                  setPendingIds((cur) => ({ ...cur, [w.id]: true }));
                   try {
-                    await rejectWaitlistItem(w, t("escrow.rejected", { title: w.title }));
+                    const result = await rejectWaitlistItem(w, t("escrow.rejected", { title: w.title }));
+                    if (result.kind === "chain" && !result.ok) setMsg(result.detail || t("tx.failed"));
                   } finally {
-                    setBusyId(null);
+                    setPendingIds((cur) => {
+                      const next = { ...cur };
+                      delete next[w.id];
+                      return next;
+                    });
                   }
                 }}
               />

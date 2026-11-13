@@ -68,6 +68,8 @@ Every connected wallet is `predecessor_account_id`. On first use the contract st
 
 That account's queue, plans, requests, and escrow are separate. `set_policy`, `queue_item`, `request_spend`, and `approve_spend` all run as that wallet. The contract admin is only for `set_settlement_account` and `set_global_paused`.
 
+`queue_item`, `request_spend`, `approve_spend`, and `reject_spend` accept **0 attached NEAR**. A function-call key can call them directly. Each wallet may keep at most 20 open items and 20 open requests; the contract account pays for that storage. A plain `near deploy` of `contracts/agent-policy/res/nearly_agent_policy.wasm` onto `pocket.nearpocket.testnet` is safe: the stored layout is unchanged, so existing escrow is kept. Do not call `new` again.
+
 `request_spend` locks USDC from that account's escrow and checks the daily and per-item limits on the locked amount. `approve_spend` by the same account calls `ft_transfer` to the settlement account. The callback restores the lock if the transfer fails. `reject_spend` and `expire_spend` return the lock to escrow. `withdraw` sends unlocked escrow back to the account.
 
 Views: `get_policy`, `get_escrow`, `get_request`, `get_item`, and `get_plan` take `account_id`. `get_config` and `contract_version` (returns `2`) do not.
