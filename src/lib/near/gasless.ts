@@ -21,7 +21,7 @@ import {
   BLOCK_HEIGHT_TTL,
   DEFAULT_FUNCTION_GAS,
   LOCAL_KEY_ALLOWANCE_YOCTO,
-  POLICY_METHODS,
+  USER_POLICY_METHODS,
 } from "./relay-allowlist";
 import { getSignedInWallet, type SelectorWallet } from "./selector";
 
@@ -39,7 +39,7 @@ export interface ChainResult {
   txHash?: string;
   explorerUrl?: string;
   success?: boolean;
-  detailCode?: "owner-only" | "demo" | "not-testnet" | "unavailable";
+  detailCode?: "owner-only" | "legacy-contract" | "needs-escrow" | "demo" | "not-testnet" | "unavailable";
   detail?: string;
 }
 
@@ -289,7 +289,7 @@ async function signWithLocalKey(
         near.actions.addFunctionCallAccessKey(
           keyPair.getPublicKey(),
           receiverId,
-          [...POLICY_METHODS],
+          [...USER_POLICY_METHODS],
           LOCAL_KEY_ALLOWANCE_YOCTO,
         ),
       ],

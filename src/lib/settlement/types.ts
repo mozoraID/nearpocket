@@ -19,6 +19,8 @@ export type SettlementStatus =
   | "offramping"
   | "paying_merchant"
   | "paid"
+  | "sandbox"
+  | "sandbox_partner"
   | "failed"
   | "mocked";
 
@@ -58,8 +60,10 @@ export interface SettlementReceipt {
   mocked: boolean;
   /** True when a testnet relayer paid the gas for nearTxHash. */
   gasCovered?: boolean;
-  /** On-chain step was not sent because this account is not the contract owner. */
-  chainNote?: "owner-only";
+  /** Why an on-chain spend step was not sent. */
+  chainNote?: "owner-only" | "legacy-contract" | "needs-escrow";
+  /** Extra figure for chainNote, such as available escrow in USDC. */
+  chainDetail?: string;
 }
 
 export interface SettlementAdapter {

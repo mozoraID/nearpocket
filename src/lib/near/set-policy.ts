@@ -4,13 +4,9 @@ import type { SpendPolicy } from "@/lib/agent/policy";
 import { setPolicyCall, submitPolicyCalls } from "./policy-chain";
 
 /**
- * Save spend limits. On testnet, try a gasless meta-transaction first.
- * If the relayer is not configured, the connected wallet sends set_policy
- * and the user pays gas. Demo mode stays on this device.
- *
- * set_policy is owner-only. The predecessor of a meta-transaction is the
- * signing account, so a wallet that is not the contract owner is not sent
- * on-chain.
+ * Save spend limits for the connected account. On the per-account contract
+ * any testnet wallet can call set_policy. Demo mode stays on this device.
+ * A contract that does not escrow per account is not called.
  */
 export async function trySetPolicyOnChain(
   policy: SpendPolicy,
@@ -19,7 +15,7 @@ export async function trySetPolicyOnChain(
   ok: boolean;
   mode: "on-chain" | "local";
   gasCovered?: boolean;
-  detailCode?: "owner-only";
+  detailCode?: "owner-only" | "legacy-contract" | "needs-escrow";
   detail?: string;
 }> {
   if (opts.demoMode || !opts.accountId || opts.accountId === "demo.local") {
@@ -27,8 +23,8 @@ export async function trySetPolicyOnChain(
   }
   try {
     const chain = await submitPolicyCalls([setPolicyCall(policy)]);
-    if (chain.detailCode === "owner-only") {
-      return { ok: true, mode: "local", detailCode: "owner-only" };
+    if (chain.detailCode === "owner-only" || chain.detailCode === "legacy-contract" || chain.detailCode === "needs-escrow") {
+      return { ok: true, mode: "local", detailCode: chain.detailCode, detail: chain.detail };
     }
     if (chain.ok && chain.txHash) {
       return { ok: true, mode: "on-chain", gasCovered: chain.mode === "gasless" };

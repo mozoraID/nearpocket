@@ -8,11 +8,12 @@
  *   NEAR_ACCOUNT_ID + NEAR_PRIVATE_KEY     (ed25519:...)
  *   or NEAR_CREDENTIALS_FILE               JSON { "account_id", "private_key" }
  *
- * Contract defaults to nearly-7b1462.testnet.
+ * Contract defaults to pocket.nearpocket.testnet.
  * Override with NEAR_CONTRACT_ID or --contract <id.testnet>.
  *
- * queue_item and approve_spend succeed only when the signer is the contract
- * owner (on the deployed contract that is nearly-7b1462.testnet).
+ * Each signer uses its own policy and escrow. queue_item, request_spend,
+ * and approve_spend do not require the contract admin. request_spend
+ * locks USDC already deposited into the contract.
  *
  * Prints explorer links. Does not print private keys. Refuses mainnet.
  * Does not deploy or replace code unless you pass --create-throwaway.
@@ -25,7 +26,7 @@ import { Account, JsonRpcProvider, KeyPair, actions } from "near-api-js";
 
 const RPC = "https://rpc.testnet.near.org";
 const EXPLORER = "https://testnet.nearblocks.io";
-const DEFAULT_CONTRACT = "nearly-7b1462.testnet";
+const DEFAULT_CONTRACT = "pocket.nearpocket.testnet";
 const FAUCET_URLS = [
   "https://helper.testnet.near.org/account",
   "https://helper.testnet.near.org",
@@ -197,15 +198,9 @@ function usdc(units) {
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
-async function runFlow(signer, contractId, policy) {
-  if (policy.paused) die("Contract is paused. Unpause before running the demo.");
-  if (policy.owner !== signer.accountId) {
-    die(
-      `Signer ${signer.accountId} is not the owner of ${contractId} (owner is ${policy.owner}). ` +
-        "queue_item and approve_spend only succeed from the owner account. " +
-        `Sign as ${policy.owner}, or set NEAR_CONTRACT_ID / --contract to a policy contract this account owns.`,
-    );
-  }
+async function runFlow(signer, contractId, policy, escrow) {
+  if (policy.paused || policy.global_paused) die("Contract or this account is paused. Unpause before running the demo.");
+  const available = escrow ? asUnits(escrow.available_usdc_6) : 0n;
 
   const daily = asUnits(policy.daily_limit_usdc_6);
   const perItem = asUnits(policy.per_item_max_usdc_6);
@@ -258,7 +253,23 @@ async function runFlow(signer, contractId, policy) {
     amount_usdc_6: within.toString(),
   });
   printStep("request_spend within limit", requested);
-  const expectedRequest = policy.require_approval ? "awaiting_approval" : "purchased";
+  const expectedRequest = policy.require_approval ? "awaiting_approval" : "transferring";
+  if (available < within) {
+    console.log("");
+    console.log(
+      `Escrow for ${signer.accountId} is ${usdc(available)} USDC. request_spend cannot lock funds until this account deposits USDC.`,
+    );
+    console.log("Deposit with ft_transfer_call (1 yoctoNEAR attached), then rerun:");
+    console.log(
+      `  near call ${process.env.NEAR_USDC_CONTRACT_ID || "usdc.fakes.testnet"} ft_transfer_call ` +
+        `'{"receiver_id":"${contractId}","amount":"${within}","msg":""}' ` +
+        `--accountId ${signer.accountId} --depositYocto 1 --gas 100000000000000`,
+    );
+    if (!requested.ok) {
+      console.log("request_spend was refused, which is expected without escrow.");
+      return;
+    }
+  }
   if (!requested.ok || requested.value !== expectedRequest) {
     die(`Expected request_spend within the limit to return ${expectedRequest}.`);
   }
@@ -346,8 +357,8 @@ async function deployFresh(signer) {
   console.log(`deployed a fresh copy on ${signer.accountId}`);
   if (link) console.log(`     ${link}`);
   const init = await call(signer, signer.accountId, "new", {
-    daily_limit_usdc_6: "2000000",
-    per_item_max_usdc_6: "2000000",
+    usdc_contract: process.env.NEAR_USDC_CONTRACT_ID || "usdc.fakes.testnet",
+    settlement_account: signer.accountId,
   });
   printStep("new", init);
   if (!init.ok) die("Contract init failed.");
@@ -367,9 +378,14 @@ async function main() {
     const policy = await provider.callFunction({
       contractId: created.accountId,
       method: "get_policy",
-      args: {},
+      args: { account_id: created.accountId },
     });
-    await runFlow(signer, created.accountId, policy);
+    const escrow = await provider.callFunction({
+      contractId: created.accountId,
+      method: "get_escrow",
+      args: { account_id: created.accountId },
+    });
+    await runFlow(signer, created.accountId, policy, escrow);
     return;
   }
 
@@ -381,12 +397,25 @@ async function main() {
   console.log(`     ${EXPLORER}/address/${accountId}`);
 
   let policy;
+  let escrow = null;
   try {
-    policy = await provider.callFunction({ contractId, method: "get_policy", args: {} });
+    policy = await provider.callFunction({
+      contractId,
+      method: "get_policy",
+      args: { account_id: accountId },
+    });
+    escrow = await provider.callFunction({
+      contractId,
+      method: "get_escrow",
+      args: { account_id: accountId },
+    });
   } catch (error) {
-    die(`Could not read get_policy on ${contractId}: ${error instanceof Error ? error.message : "view failed"}`);
+    die(
+      `Could not read get_policy/get_escrow on ${contractId}: ${error instanceof Error ? error.message : "view failed"}. ` +
+        "This script targets the per-account escrow contract. Set NEAR_CONTRACT_ID to that account.",
+    );
   }
-  await runFlow(signer, contractId, policy);
+  await runFlow(signer, contractId, policy, escrow);
 }
 
 main().catch((error) => {

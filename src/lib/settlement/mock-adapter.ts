@@ -58,8 +58,6 @@ export const mockPartnerAdapter: SettlementAdapter = {
     return {
       request: req,
       status: "mocked",
-      nearTxHash: `demo.${uid("tx")}`,
-      intentsQuoteId: uid("intent"),
       partnerRef: uid("pjp"),
       merchantReceiptId: uid("rcpt"),
       timeline,
@@ -102,8 +100,6 @@ function settleMerchantCheckout(req: SettlementRequest): SettlementReceipt {
       },
     },
     status: "mocked",
-    nearTxHash: `demo.${uid("tx")}`,
-    intentsQuoteId: uid("intent"),
     partnerRef: uid("pjp"),
     merchantReceiptId: orderId,
     timeline: built.timeline,

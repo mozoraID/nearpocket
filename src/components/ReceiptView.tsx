@@ -19,8 +19,20 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
 export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
   const t = useT();
   const r = receipt.request;
-  const ok = receipt.status === "paid" || receipt.status === "mocked";
-  const realTx = receipt.nearTxHash && !receipt.nearTxHash.startsWith("demo.");
+  const ok = receipt.status === "paid" || receipt.status === "mocked" || receipt.status === "sandbox" || receipt.status === "sandbox_partner";
+  const realTx = Boolean(receipt.nearTxHash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(receipt.nearTxHash));
+  const headline =
+    receipt.status === "mocked" || receipt.mocked
+      ? t("pay.demoCompleted")
+      : receipt.status === "sandbox"
+        ? t("pay.sandboxXendit")
+        : receipt.status === "sandbox_partner"
+          ? t("pay.sandboxPartner")
+          : realTx
+            ? t("pay.onchain")
+            : ok
+              ? t("receipt.paidTo")
+              : t("pay.failed");
   return (
     <div className="card space-y-4">
       <div className="flex flex-col items-center text-center">
@@ -29,7 +41,7 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
         >
           <Check className="h-7 w-7" strokeWidth={2.5} />
         </span>
-        <p className="mt-3 text-sm text-warm-600">{ok ? t("receipt.paidTo") : t("pay.failed")}</p>
+        <p className="mt-3 text-sm text-warm-600">{headline}</p>
         <p className="text-lg font-semibold">{r.merchantName}</p>
         <p className="mt-1 text-3xl font-bold tracking-tight">
           {formatFiat(r.localAmount, r.localCurrency, r.rail.currencySymbol)}
@@ -58,17 +70,13 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
         {receipt.intentsQuoteId && (
           <Row k={t("receipt.quoteId")} v={<span className="font-mono text-xs">{receipt.intentsQuoteId}</span>} />
         )}
-        {receipt.nearTxHash && (
+        {realTx && receipt.nearTxHash && (
           <Row
-            k={t("receipt.nearTx")}
+            k={t("pay.onchain")}
             v={
-              realTx ? (
-                <a className="underline" href={explorerTxUrl(receipt.nearTxHash)} target="_blank" rel="noreferrer">
-                  {receipt.nearTxHash.slice(0, 10)}…
-                </a>
-              ) : (
-                <span className="font-mono text-xs">{receipt.nearTxHash} {t("receipt.demoTag")}</span>
-              )
+              <a className="underline" href={explorerTxUrl(receipt.nearTxHash)} target="_blank" rel="noreferrer">
+                {receipt.nearTxHash.slice(0, 10)}…
+              </a>
             }
           />
         )}
@@ -110,6 +118,14 @@ export function ReceiptView({ receipt }: { receipt: SettlementReceipt }) {
       )}
       {receipt.chainNote === "owner-only" && (
         <p className="text-xs leading-relaxed text-warm-600">{t("shop.ownerOnlyChain")}</p>
+      )}
+      {receipt.chainNote === "legacy-contract" && (
+        <p className="text-xs leading-relaxed text-warm-600">{t("shop.chainLegacy")}</p>
+      )}
+      {receipt.chainNote === "needs-escrow" && (
+        <p className="text-xs leading-relaxed text-warm-600">
+          {t("shop.needsEscrow", { amount: receipt.chainDetail || "0.00" })}
+        </p>
       )}
       <p className="text-xs leading-relaxed text-warm-500">
         {r.mode === "merchant_checkout" ? t("receipt.intentsNote") : receipt.complianceNote}

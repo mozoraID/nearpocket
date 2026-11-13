@@ -58,8 +58,8 @@ export interface WaitlistItem {
 }
 
 export const DEFAULT_POLICY: SpendPolicy = {
-  dailyLimitUsdc: 50,
-  perItemMaxUsdc: 25,
+  dailyLimitUsdc: 75,
+  perItemMaxUsdc: 30,
   requireApproval: true,
   allowedCategories: ["electronics", "groceries", "fashion", "digital", "food"],
   paused: false,

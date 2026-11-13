@@ -227,7 +227,7 @@ export async function quoteAnyToUsdc(
     opts?.accountId &&
     (opts.accountId.endsWith(".near") || opts.accountId.endsWith(".testnet"))
       ? opts.accountId
-      : "nearly-7b1462.testnet";
+      : "pocket.nearpocket.testnet";
 
   const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const body = buildOneClickQuoteBody({
@@ -425,7 +425,7 @@ export async function prepareIntentExecution(input: {
 /**
  * Submit the deposit transaction. Refuses unless NEAR_INTENTS_EXECUTE,
  * NEAR_INTENTS_BROADCAST, and NEAR_INTENTS_MAINNET_ACK are all "1".
- * 1Click deposit addresses are mainnet. Do not call this from the hackathon demo.
+ * 1Click deposit addresses are mainnet. The product stays on testnet and does not broadcast this.
  */
 export async function broadcastIntentDeposit(
   plan: DepositPlan,

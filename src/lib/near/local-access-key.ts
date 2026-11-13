@@ -6,9 +6,9 @@
  * gasless client does once with the connected wallet (that registration is
  * a normal transaction, so the user pays gas for it).
  */
-import { POLICY_METHODS } from "./relay-allowlist";
+import { USER_POLICY_METHODS } from "./relay-allowlist";
 
-const STORAGE = "nearpocket-fc-access-key-v1";
+const STORAGE = "nearpocket-fc-access-key-v2";
 
 export interface LocalFunctionCallKey {
   accountId: string;
@@ -46,7 +46,7 @@ export async function getOrCreateFunctionCallKey(
     contractId,
     publicKey: key.getPublicKey().toString(),
     secretKey: key.toString(),
-    methodNames: POLICY_METHODS,
+    methodNames: USER_POLICY_METHODS,
     createdAt: new Date().toISOString(),
   };
   localStorage.setItem(STORAGE, JSON.stringify(record));

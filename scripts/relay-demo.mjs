@@ -24,7 +24,7 @@ import {
 import { validateSignedDelegate } from "../src/lib/near/relay-policy.ts";
 
 const RPC = "https://rpc.testnet.near.org";
-const DEFAULT_CONTRACT = "nearly-7b1462.testnet";
+const DEFAULT_CONTRACT = "pocket.nearpocket.testnet";
 
 function die(message) {
   console.error(message);
@@ -118,7 +118,14 @@ async function signedGetPolicy(sender, contract) {
   const delegate = buildDelegateAction({
     senderId: sender.accountId,
     receiverId: contract,
-    actions: [actions.functionCall("get_policy", {}, 30_000_000_000_000n, 0n)],
+    actions: [
+      actions.functionCall(
+        "get_policy",
+        { account_id: sender.accountId },
+        30_000_000_000_000n,
+        0n,
+      ),
+    ],
     nonce: BigInt(accessKey.nonce) + 1n,
     maxBlockHeight: BigInt(block.header.height) + 100n,
     publicKey: keyPair.getPublicKey(),

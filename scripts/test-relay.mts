@@ -116,7 +116,19 @@ const ownerCall = await sign({
     ),
   ],
 });
-assert.equal(validateSignedDelegate(ownerCall, config).needsOwner, true);
+assert.equal(validateSignedDelegate(ownerCall, config).needsOwner, false);
+
+const adminCall = await sign({
+  nearActions: [
+    actions.functionCall(
+      "set_global_paused",
+      { paused: true },
+      30_000_000_000_000n,
+      0n,
+    ),
+  ],
+});
+assert.equal(validateSignedDelegate(adminCall, config).needsOwner, true);
 
 for (const [name, action] of [
   ["transfer", actions.transfer(1n)],
@@ -136,8 +148,8 @@ expectReject(
 );
 
 expectReject(
-  await sign({ nearActions: [actions.functionCall("reject_spend", {}, 30_000_000_000_000n, 0n)] }),
-  /method reject_spend is not allowlisted/,
+  await sign({ nearActions: [actions.functionCall("steal_funds", {}, 30_000_000_000_000n, 0n)] }),
+  /method steal_funds is not allowlisted/,
 );
 
 expectReject(

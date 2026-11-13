@@ -3,14 +3,17 @@
  * Kept free of near-api-js so the client and the server share one list.
  *
  * A meta-transaction (NEP-366) does not make the relayer the predecessor.
- * Owner-only methods still succeed only when the signing account is the
- * contract owner. The relayer checks that before it spends gas.
+ * Spend methods run as the signing account and touch only that account's
+ * policy, queue, and escrow. Admin methods still require the contract admin.
  */
 
 /** 100 TGas. A NEAR transaction can hold at most 300 TGas. */
 export const MAX_GAS_PER_ACTION = 100_000_000_000_000n;
 
 export const DEFAULT_FUNCTION_GAS = 30_000_000_000_000n;
+
+/** request/approve/withdraw may schedule an ft_transfer plus a callback. */
+export const SPEND_FUNCTION_GAS = 80_000_000_000_000n;
 
 export const MAX_ACTIONS = 8;
 
@@ -35,33 +38,41 @@ export const LOCAL_KEY_ALLOWANCE_YOCTO = 250_000_000_000_000_000_000_000n;
 export const DEFAULT_USDC_CONTRACT_ID = "usdc.fakes.testnet";
 
 /**
- * Public methods on contracts/agent-policy.
- * Views are included so the demo script can relay a harmless get_policy.
+ * Methods a connected wallet may call on its own state.
+ * Views are included so a relayed read stays harmless.
+ * This list is also the method set on the in-browser function-call key.
  */
-export const POLICY_METHODS = [
+export const USER_POLICY_METHODS = [
+  "contract_version",
+  "get_config",
   "get_policy",
+  "get_escrow",
+  "get_request",
+  "get_item",
   "get_plan",
   "request_spend",
   "approve_spend",
+  "reject_spend",
+  "expire_spend",
+  "withdraw",
   "queue_item",
   "set_item_status",
   "set_policy",
   "upsert_plan",
 ] as const;
+
+/** Contract admin only: settlement account and the global pause. */
+export const ADMIN_POLICY_METHODS = ["set_settlement_account", "set_global_paused"] as const;
+
+export const POLICY_METHODS = [...USER_POLICY_METHODS, ...ADMIN_POLICY_METHODS] as const;
 
 export type PolicyMethod = (typeof POLICY_METHODS)[number];
 
 /**
- * predecessor must be the contract owner. request_spend, get_policy, and
- * get_plan are not in this list: any account may call them.
+ * predecessor must be the contract admin. Every other policy method
+ * applies to the signing account.
  */
-export const OWNER_ONLY_METHODS = [
-  "approve_spend",
-  "queue_item",
-  "set_item_status",
-  "set_policy",
-  "upsert_plan",
-] as const;
+export const OWNER_ONLY_METHODS = ADMIN_POLICY_METHODS;
 
 export type OwnerOnlyMethod = (typeof OWNER_ONLY_METHODS)[number];
 

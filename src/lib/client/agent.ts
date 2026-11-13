@@ -5,7 +5,7 @@ import { checkSpend, type WaitlistItem } from "@/lib/agent/policy";
 import { buildCardSettlement } from "@/lib/settlement";
 import type { FxQuote } from "@/lib/fx/quote";
 import { useNearPocketStore } from "@/lib/store";
-import { shopApproveCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
+import { shopApproveCalls, shopRejectCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
 import { settleAndRecord } from "./pay";
 import { decorateShopCheckout } from "./shop-order";
 
@@ -33,9 +33,15 @@ export async function approveWaitlistItem(item: WaitlistItem) {
     kind: "purchase",
     title: item.title,
     countTowardAgentPolicy: true,
-    txHash: chain?.txHash,
+    txHash: chain?.ok ? chain.txHash : undefined,
     gasCovered: chain?.mode === "gasless",
-    chainNote: chain?.detailCode === "owner-only" ? "owner-only" : undefined,
+    chainNote:
+      chain?.detailCode === "owner-only" ||
+      chain?.detailCode === "legacy-contract" ||
+      chain?.detailCode === "needs-escrow"
+        ? chain.detailCode
+        : undefined,
+    chainDetail: chain?.detail,
   });
   st.updateWaitlist(item.id, {
     status: receipt.status === "failed" ? "awaiting_approval" : "purchased",
@@ -51,10 +57,12 @@ export async function approveWaitlistItem(item: WaitlistItem) {
   return receipt;
 }
 
-export function rejectWaitlistItem(item: WaitlistItem) {
+export async function rejectWaitlistItem(item: WaitlistItem) {
   const st = useNearPocketStore.getState();
+  const chain = await submitPolicyCalls(shopRejectCalls({ id: item.id })).catch(() => null);
   st.updateWaitlist(item.id, { status: "rejected", agentReason: "Rejected by you." });
   st.logActivity({ kind: "agent", title: `You rejected: ${item.title}`, status: "rejected" });
+  return chain;
 }
 
 /** Ask the agent to re-check the price (demo price tick from /api/agent). */

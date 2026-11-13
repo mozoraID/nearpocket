@@ -55,8 +55,21 @@ function categoryFor(q: string) {
 interface ChainInfo {
   contractId: string;
   explorerAccount?: string;
+  legacy?: boolean;
   policy: { dailyLimitUsdc: number; spentTodayUsdc: number; perItemMaxUsdc: number } | null;
+  escrow?: { availableUsdc: number; lockedUsdc: number } | null;
   sampleTxs?: Record<string, { hash: string; url: string }>;
+}
+
+function chainMessage(
+  t: (key: "shop.ownerOnlyChain" | "shop.chainLegacy" | "shop.needsEscrow", vars?: Record<string, string | number>) => string,
+  code?: string,
+  detail?: string,
+) {
+  if (code === "needs-escrow") return t("shop.needsEscrow", { amount: detail || "0.00" });
+  if (code === "legacy-contract") return t("shop.chainLegacy");
+  if (code === "owner-only") return t("shop.ownerOnlyChain");
+  return null;
 }
 
 export default function ShopPage() {
@@ -102,8 +115,9 @@ export default function ShopPage() {
   useEffect(() => {
     setMounted(true);
     setCountryFilter(marketplaceCountryFor(displayCurrency));
-    fetch("/api/contract").then((r) => r.json()).then(setChain).catch(() => null);
-  }, [displayCurrency]);
+    const q = accountId && accountId !== "demo.local" ? `?account=${encodeURIComponent(accountId)}` : "";
+    fetch(`/api/contract${q}`).then((r) => r.json()).then(setChain).catch(() => null);
+  }, [displayCurrency, accountId]);
 
   async function search(q: string) {
     const term = q.trim();
@@ -142,10 +156,6 @@ export default function ShopPage() {
     if (!askFor) return;
     const max = parseFloat(budget);
     if (!max || max <= 0) return;
-    if (!shipAddress) {
-      setMsg(t("shop.needAddress"));
-      return;
-    }
     const best = askFor.offer || offers?.[0];
     const current = best?.priceUsdc ?? max * 1.2;
     const within = current <= max;
@@ -169,10 +179,12 @@ export default function ShopPage() {
         ? t("shop.reasonWithin", { price: current.toFixed(2), budget: max })
         : t("shop.reasonWatch", { price: current.toFixed(2), budget: max }),
     };
-    const queued = attachSavedAddress(item, {
-      shipTo: formatShipTo(shipAddress),
-      addressId: shipAddress.id,
-    }).item;
+    const queued = shipAddress
+      ? attachSavedAddress(item, {
+          shipTo: formatShipTo(shipAddress),
+          addressId: shipAddress.id,
+        }).item
+      : item;
     addWaitlist(queued);
     logActivity({
       kind: "agent",
@@ -191,9 +203,12 @@ export default function ShopPage() {
         withinBudget: within,
       }),
     )
-      .then((chain) => {
-        if (chain.mode === "gasless" && chain.txHash) setMsg(t("receipt.gasCovered"));
-        else if (chain.detailCode === "owner-only" && !demoMode) setMsg(t("shop.ownerOnlyChain"));
+      .then((result) => {
+        if (result.mode === "gasless" && result.txHash) setMsg(t("receipt.gasCovered"));
+        else {
+          const note = chainMessage(t, result.detailCode, result.detail);
+          if (note && !demoMode) setMsg(note);
+        }
       })
       .catch(() => null);
     setTimeout(() => document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -230,11 +245,18 @@ export default function ShopPage() {
         kind: "purchase",
         title: buyOffer.title.split(" · ")[0],
         countTowardAgentPolicy: true,
-        txHash: chain?.txHash,
+        txHash: chain?.ok ? chain.txHash : undefined,
         gasCovered: chain?.mode === "gasless",
-        chainNote: chain?.detailCode === "owner-only" ? "owner-only" : undefined,
+        chainNote:
+          chain?.detailCode === "owner-only" ||
+          chain?.detailCode === "legacy-contract" ||
+          chain?.detailCode === "needs-escrow"
+            ? chain.detailCode
+            : undefined,
+        chainDetail: chain?.detail,
       });
-      if (chain?.detailCode === "owner-only" && !demoMode) setMsg(t("shop.ownerOnlyChain"));
+      const note = chainMessage(t, chain?.detailCode, chain?.detail);
+      if (note && !demoMode) setMsg(note);
       setBuyReceipt(r);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t("shop.buyFailed"));
@@ -250,9 +272,12 @@ export default function ShopPage() {
     try {
       const result = await fn();
       if (result && typeof result === "object") {
-        const chain = result as { gasCovered?: boolean; chainNote?: string };
+        const chain = result as { gasCovered?: boolean; chainNote?: string; chainDetail?: string };
         if (chain.gasCovered) setMsg(t("receipt.gasCovered"));
-        else if (chain.chainNote === "owner-only") setMsg(t("shop.ownerOnlyChain"));
+        else {
+          const note = chainMessage(t, chain.chainNote, chain.chainDetail);
+          if (note) setMsg(note);
+        }
       }
     } catch (e) {
       setMsg(e instanceof AddressRequiredError ? t("shop.needAddress") : e instanceof Error ? e.message : t("shop.errorGeneric"));
@@ -269,8 +294,8 @@ export default function ShopPage() {
         ? result.gasCovered
           ? t("shop.savedGasless")
           : t("shop.savedOnChain")
-        : result.detailCode === "owner-only"
-          ? t("shop.ownerOnlyChain")
+        : result.detailCode === "legacy-contract" || result.detailCode === "owner-only"
+          ? t(result.detailCode === "owner-only" ? "shop.ownerOnlyChain" : "shop.chainLegacy")
           : result.detail || t("shop.savedLocal"),
     );
     setLimitsOpen(false);
@@ -431,6 +456,14 @@ export default function ShopPage() {
       <section id="agent" className="mt-8 scroll-mt-4">
         <h2 className="text-base font-semibold">{t("shop.yourAgent")}</h2>
         <p className="mb-3 text-sm text-warm-600">{t("shop.yourAgentHint")}</p>
+        {mounted && !demoMode && accountId && accountId !== "demo.local" && chain?.legacy && (
+          <p className="mb-3 rounded-2xl bg-cream-300 px-4 py-3 text-sm text-warm-600">{t("shop.chainLegacy")}</p>
+        )}
+        {mounted && !demoMode && accountId && accountId !== "demo.local" && chain && !chain.legacy && (chain.escrow?.availableUsdc ?? 0) <= 0 && (
+          <p className="mb-3 rounded-2xl bg-cream-300 px-4 py-3 text-sm text-warm-600">
+            {t("shop.needsEscrow", { amount: (chain.escrow?.availableUsdc ?? 0).toFixed(2) })}
+          </p>
+        )}
         <AgentChatInline />
         {items.length === 0 ? (
           <div className="card text-center text-sm text-warm-600">{t("shop.nothingYet")}</div>
@@ -454,9 +487,11 @@ export default function ShopPage() {
                   <span className="text-warm-600">{t("shop.budgetAmount", { amount: (w.maxBudgetUsdc ?? w.targetPriceUsdc).toFixed(2) })}</span>
                 </div>
                 {w.agentReason && <p className="mt-2 text-xs text-warm-600">{w.agentReason}</p>}
-                <p className="mt-2 text-xs text-warm-600">
-                  {shipLine ? t("shop.shipTo", { address: shipLine }) : t("shop.needAddress")}
-                </p>
+                {(w.status === "awaiting_approval" || w.status === "ready") && (
+                  <p className="mt-2 text-xs text-warm-600">
+                    {shipLine ? t("shop.shipTo", { address: shipLine }) : t("shop.needAddress")}
+                  </p>
+                )}
                 <div className="mt-3 flex gap-2">
                   {w.status === "awaiting_approval" || w.status === "ready" ? (
                     <>
@@ -557,17 +592,7 @@ export default function ShopPage() {
             <div className="rounded-2xl bg-cream-200 p-4">
               <p className="font-semibold">{askFor.title}</p>
             </div>
-            {shipAddress ? (
-              <p className="text-sm text-warm-600">
-                {t("shop.shipTo", { address: shipLine })}
-                <span className="mt-1 block text-xs">{t("shop.addressReused")}</span>
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-warm-600">{t("shop.needAddress")}</p>
-                <DeliveryAddressForm forceDefault />
-              </div>
-            )}
+            <p className="text-sm text-warm-600">{t("shop.addressAtCheckout")}</p>
             <label className="block space-y-1.5">
               <span className="text-sm text-warm-600">{t("shop.maxBudget")}</span>
               <input className="input text-xl font-semibold" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} />
@@ -576,7 +601,7 @@ export default function ShopPage() {
               <span className="text-sm text-warm-600">{t("shop.stopAfter")}</span>
               <input className="input" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
             </label>
-            <button type="button" className="btn-primary w-full" disabled={!(parseFloat(budget) > 0) || !shipAddress} onClick={submitAsk}>
+            <button type="button" className="btn-primary w-full" disabled={!(parseFloat(budget) > 0)} onClick={submitAsk}>
               {t("shop.startWatching")}
             </button>
           </div>
