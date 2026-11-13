@@ -38,3 +38,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
         run: cargo test --manifest-path contracts/agent-policy/Cargo.toml -- --test-threads=1
+      - name: OpenSSL headers for the sandbox client
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+      - name: build sandbox wasms
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo build --manifest-path contracts/agent-policy/Cargo.toml --target wasm32-unknown-unknown --release
+          cargo build --manifest-path contracts/test-ft/Cargo.toml --target wasm32-unknown-unknown --release
+          cp contracts/agent-policy/target/wasm32-unknown-unknown/release/nearly_agent_policy.wasm contracts/agent-policy/res/nearly_agent_policy.wasm
+      - name: sandbox escrow flow
+        run: cargo test --manifest-path contracts/escrow-sandbox/Cargo.toml -- --test-threads=1

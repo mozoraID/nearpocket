@@ -7,7 +7,7 @@
 //! The contract admin only sets the settlement account and the global pause.
 
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::collections::UnorderedMap;
+use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
@@ -15,7 +15,7 @@ use near_sdk::{
     PanicOnDefault, Promise, PromiseOrValue, PromiseResult,
 };
 
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 /// 75 USDC, 6 decimals.
 const DEFAULT_DAILY_USDC_6: u128 = 75_000_000;
 /// 30 USDC, 6 decimals.
@@ -24,6 +24,8 @@ const DEFAULT_PER_ITEM_USDC_6: u128 = 30_000_000;
 const REQUEST_TTL_NS: u64 = 86_400 * 1_000_000_000;
 /// Open queue rows or spend requests one wallet may have. The contract account pays the storage.
 const MAX_OPEN_PER_ACCOUNT: u64 = 20;
+/// Resolved requests kept per wallet. Older ones are removed. The wallet can clear the rest.
+const MAX_HISTORY_PER_ACCOUNT: u64 = 20;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(20);
 const GAS_FT_CALLBACK: Gas = Gas::from_tgas(25);
 
@@ -31,9 +33,9 @@ const GAS_FT_CALLBACK: Gas = Gas::from_tgas(25);
 #[borsh(crate = "near_sdk::borsh")]
 enum StorageKey {
     Accounts,
-    Items,
-    Requests,
-    Plans,
+    Items { account: AccountId },
+    Requests { account: AccountId },
+    Plans { account: AccountId },
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, NearSchema)]
@@ -55,6 +57,8 @@ struct AccountRecord {
     escrow: u128,
     locked: u128,
     pending_withdraw: u128,
+    open_items: u64,
+    open_requests: u64,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, NearSchema)]
@@ -91,6 +95,8 @@ struct SpendRequest {
     charged_day: u64,
     expires_at_ns: u64,
     plan_id: Option<String>,
+    /// Payout account copied from the global settlement when this request was created.
+    settlement_account: AccountId,
 }
 
 #[near_bindgen]
@@ -99,12 +105,12 @@ struct SpendRequest {
 pub struct Contract {
     owner: AccountId,
     usdc_contract: AccountId,
+    /// Default payout for requests created after this value changes. Existing requests keep their own copy.
     settlement_account: AccountId,
     global_paused: bool,
-    accounts: UnorderedMap<AccountId, AccountRecord>,
-    items: UnorderedMap<Vec<u8>, WaitItem>,
-    requests: UnorderedMap<Vec<u8>, SpendRequest>,
-    plans: UnorderedMap<Vec<u8>, PlanMeta>,
+    /// How long a locked request stays approvable. The default is one UTC day.
+    request_ttl_ns: u64,
+    accounts: LookupMap<AccountId, AccountRecord>,
 }
 
 #[allow(dead_code)]
@@ -141,10 +147,8 @@ impl Contract {
             usdc_contract,
             settlement_account,
             global_paused: false,
-            accounts: UnorderedMap::new(StorageKey::Accounts),
-            items: UnorderedMap::new(StorageKey::Items),
-            requests: UnorderedMap::new(StorageKey::Requests),
-            plans: UnorderedMap::new(StorageKey::Plans),
+            request_ttl_ns: REQUEST_TTL_NS,
+            accounts: LookupMap::new(StorageKey::Accounts),
         }
     }
 
@@ -172,6 +176,13 @@ impl Contract {
             "settlement must be a separate account"
         );
         self.settlement_account = account_id;
+    }
+
+    /// Admin only. Changes how long new requests stay open. Existing requests keep the expiry already stored.
+    pub fn set_request_ttl_ns(&mut self, ttl_ns: u64) {
+        self.assert_admin();
+        assert!(ttl_ns > 0, "ttl");
+        self.request_ttl_ns = ttl_ns;
     }
 
     /// Admin only. Blocks new locks and releases. Deposits and withdrawals stay open.
@@ -211,7 +222,8 @@ impl Contract {
         account.escrow -= amount.0;
         account.pending_withdraw = amount.0;
         self.save_account(&user, &account);
-        self.transfer_out(user, amount.0, "withdraw".into(), None)
+        let receiver = user.clone();
+        self.transfer_out(user, amount.0, "withdraw".into(), None, receiver)
     }
 
     pub fn get_policy(&self, account_id: AccountId) -> PolicyView {
@@ -243,25 +255,65 @@ impl Contract {
     }
 
     pub fn get_request(&self, account_id: AccountId, id: String) -> Option<SpendRequestView> {
-        self.requests
-            .get(&pair_key(&account_id, &id))
-            .map(|req| SpendRequestView {
-                id: req.id,
-                item_id: req.item_id,
-                amount_usdc_6: U128(req.amount_usdc_6),
-                status: req.status,
-                charged_day: req.charged_day,
-                expires_at_ns: req.expires_at_ns,
-                plan_id: req.plan_id,
-            })
+        self.request_view(&account_id, &id)
+    }
+
+    /// One wallet's requests, oldest first. `limit` is capped at 50.
+    pub fn get_requests(&self, account_id: AccountId, from_index: u64, limit: u64) -> Vec<SpendRequestView> {
+        let page = limit.min(50);
+        let ids = self.request_ids(&account_id);
+        let mut out = Vec::new();
+        let mut index = from_index;
+        while index < ids.len() && (out.len() as u64) < page {
+            if let Some(id) = ids.get(index) {
+                if let Some(view) = self.request_view(&account_id, &id) {
+                    out.push(view);
+                }
+            }
+            index += 1;
+        }
+        out
     }
 
     pub fn get_item(&self, account_id: AccountId, id: String) -> Option<WaitItem> {
-        self.items.get(&pair_key(&account_id, &id))
+        self.items_of(&account_id).get(&id)
+    }
+
+    /// One wallet's queued items, oldest first. `limit` is capped at 50.
+    pub fn get_items(&self, account_id: AccountId, from_index: u64, limit: u64) -> Vec<WaitItem> {
+        let page = limit.min(50);
+        let ids = self.item_ids(&account_id);
+        let items = self.items_of(&account_id);
+        let mut out = Vec::new();
+        let mut index = from_index;
+        while index < ids.len() && (out.len() as u64) < page {
+            if let Some(id) = ids.get(index) {
+                if let Some(item) = items.get(&id) {
+                    out.push(item);
+                }
+            }
+            index += 1;
+        }
+        out
     }
 
     pub fn get_plan(&self, account_id: AccountId, id: String) -> Option<PlanMeta> {
-        self.plans.get(&pair_key(&account_id, &id))
+        self.plans_of(&account_id).get(&id)
+    }
+
+    /// The wallet deletes its own resolved requests. Open locks stay.
+    pub fn clear_resolved(&mut self) {
+        assert_zero_deposit();
+        let user = env::predecessor_account_id();
+        let resolved = self.resolved_ids(&user);
+        let mut requests = self.requests_of(&user);
+        while let Some(id) = resolved.pop_front() {
+            if let Some(req) = requests.get(&id) {
+                if !request_is_open(&req.status) {
+                    requests.remove(&id);
+                }
+            }
+        }
     }
 
     /// The caller edits only their own limits and pause.
@@ -303,10 +355,10 @@ impl Contract {
         let user = env::predecessor_account_id();
         self.ensure_registered(&user);
         assert_id(&id);
-        let key = pair_key(&user, &id);
-        let spent = self.plans.get(&key).map(|p| p.spent_usdc_6).unwrap_or(0);
-        self.plans.insert(
-            &key,
+        let mut plans = self.plans_of(&user);
+        let spent = plans.get(&id).map(|p| p.spent_usdc_6).unwrap_or(0);
+        plans.insert(
+            &id.clone(),
             &PlanMeta {
                 id,
                 title: clip(&title, 180),
@@ -323,19 +375,17 @@ impl Contract {
         let user = env::predecessor_account_id();
         self.ensure_registered(&user);
         assert_id(&id);
-        let key = pair_key(&user, &id);
-        if self.items.get(&key).is_none() {
-            let open = self
-                .items
-                .iter()
-                .filter(|(item_key, item)| {
-                    key_belongs_to(item_key, &user) && item_is_open(&item.status)
-                })
-                .count() as u64;
-            assert!(open < MAX_OPEN_PER_ACCOUNT, "too many open items");
+        let mut items = self.items_of(&user);
+        let existing = items.get(&id);
+        let was_open = existing.as_ref().map(|item| item_is_open(&item.status));
+        if was_open != Some(true) {
+            self.bump_open_items(&user);
         }
-        self.items.insert(
-            &pair_key(&user, &id),
+        if existing.is_none() {
+            self.item_ids(&user).push(&id);
+        }
+        items.insert(
+            &id.clone(),
             &WaitItem {
                 id,
                 title: clip(&title, 180),
@@ -349,10 +399,12 @@ impl Contract {
     pub fn set_item_status(&mut self, id: String, status: String) {
         assert_zero_deposit();
         let user = env::predecessor_account_id();
-        let key = pair_key(&user, &id);
-        let mut item = self.items.get(&key).expect("item");
-        item.status = clip(&status, 32);
-        self.items.insert(&key, &item);
+        let mut items = self.items_of(&user);
+        let mut item = items.get(&id).expect("item");
+        let next = clip(&status, 32);
+        self.adjust_open_items(&user, item_is_open(&item.status), item_is_open(&next));
+        item.status = next;
+        items.insert(&id, &item);
     }
 
     /// Lock `amount` from the caller's escrow. Approval still has to release it
@@ -372,24 +424,17 @@ impl Contract {
             "over daily limit"
         );
         assert!(account.escrow >= amount_usdc_6.0, "insufficient escrow");
-        let item_key = pair_key(&user, &id);
-        let mut item = self.items.get(&item_key).expect("item");
-        let req_key = pair_key(&user, &id);
-        if let Some(existing) = self.requests.get(&req_key) {
-            assert!(
-                !matches!(existing.status.as_str(), "awaiting_approval" | "transferring"),
-                "request open"
-            );
+        let mut items = self.items_of(&user);
+        let mut item = items.get(&id).expect("item");
+        let mut requests = self.requests_of(&user);
+        let settlement_account = self.settlement_account.clone();
+        if let Some(existing) = requests.get(&id) {
+            assert!(!request_is_open(&existing.status), "request open");
+            self.forget_resolved(&user, &id);
+            bump_open_requests(&mut account);
         } else {
-            let open = self
-                .requests
-                .iter()
-                .filter(|(key, req)| {
-                    key_belongs_to(key, &user)
-                        && matches!(req.status.as_str(), "awaiting_approval" | "transferring")
-                })
-                .count() as u64;
-            assert!(open < MAX_OPEN_PER_ACCOUNT, "too many open requests");
+            bump_open_requests(&mut account);
+            self.request_ids(&user).push(&id);
         }
 
         account.escrow -= amount_usdc_6.0;
@@ -400,17 +445,18 @@ impl Contract {
         self.save_account(&user, &account);
 
         item.status = "awaiting_approval".into();
-        self.items.insert(&item_key, &item);
-        self.requests.insert(
-            &req_key,
+        items.insert(&id, &item);
+        requests.insert(
+            &id,
             &SpendRequest {
                 id: id.clone(),
                 item_id: id.clone(),
                 amount_usdc_6: amount_usdc_6.0,
                 status: "awaiting_approval".into(),
                 charged_day,
-                expires_at_ns: env::block_timestamp().saturating_add(REQUEST_TTL_NS),
+                expires_at_ns: env::block_timestamp().saturating_add(self.request_ttl_ns),
                 plan_id: None,
+                settlement_account,
             },
         );
 
@@ -432,7 +478,7 @@ impl Contract {
         let user = env::predecessor_account_id();
         let account = self.load_account(&user);
         self.assert_can_spend(&account);
-        let req = self.requests.get(&pair_key(&user, &id)).expect("request");
+        let req = self.requests_of(&user).get(&id).expect("request");
         assert_eq!(req.status, "awaiting_approval", "not awaiting approval");
         assert_eq!(req.amount_usdc_6, amount_usdc_6.0, "amount mismatch");
         assert!(env::block_timestamp() < req.expires_at_ns, "request expired");
@@ -481,8 +527,7 @@ impl Contract {
         let Some(request_id) = request_id else {
             return;
         };
-        let req_key = pair_key(&account_id, &request_id);
-        let Some(mut req) = self.requests.get(&req_key) else {
+        let Some(mut req) = self.requests_of(&account_id).get(&request_id) else {
             return;
         };
         if req.status != "transferring" {
@@ -491,15 +536,15 @@ impl Contract {
         let mut account = self.load_account(&account_id);
         let moving = amount.0.min(req.amount_usdc_6);
         account.locked = account.locked.saturating_sub(moving);
+        let payout = req.settlement_account.clone();
+        let item_id = req.item_id.clone();
         if ok {
             req.status = "purchased".into();
-            self.requests.insert(&req_key, &req);
+            self.requests_of(&account_id).insert(&request_id, &req);
             self.save_account(&account_id, &account);
-            self.set_status(&account_id, &req.item_id, "purchased");
-            env::log_str(&format!(
-                "escrow_released {} {} {}",
-                account_id, moving, self.settlement_account
-            ));
+            self.close_request(&account_id, &request_id);
+            self.set_status(&account_id, &item_id, "purchased");
+            env::log_str(&format!("escrow_released {} {} {}", account_id, moving, payout));
             return;
         }
 
@@ -510,14 +555,102 @@ impl Contract {
         }
         req.status = "failed".into();
         req.plan_id = None;
-        self.requests.insert(&req_key, &req);
+        self.requests_of(&account_id).insert(&request_id, &req);
         self.save_account(&account_id, &account);
-        self.set_status(&account_id, &req.item_id, "failed");
+        self.close_request(&account_id, &request_id);
+        self.set_status(&account_id, &item_id, "failed");
         env::log_str(&format!("escrow_restored {} {}", account_id, moving));
     }
 }
 
 impl Contract {
+    fn items_of(&self, account: &AccountId) -> LookupMap<String, WaitItem> {
+        LookupMap::new(StorageKey::Items { account: account.clone() })
+    }
+
+    fn requests_of(&self, account: &AccountId) -> LookupMap<String, SpendRequest> {
+        LookupMap::new(StorageKey::Requests { account: account.clone() })
+    }
+
+    fn plans_of(&self, account: &AccountId) -> LookupMap<String, PlanMeta> {
+        LookupMap::new(StorageKey::Plans { account: account.clone() })
+    }
+
+    fn item_ids(&self, account: &AccountId) -> IdList {
+        IdList::new(1, account)
+    }
+
+    fn request_ids(&self, account: &AccountId) -> IdList {
+        IdList::new(2, account)
+    }
+
+    fn resolved_ids(&self, account: &AccountId) -> IdList {
+        IdList::new(3, account)
+    }
+
+    fn request_view(&self, account: &AccountId, id: &str) -> Option<SpendRequestView> {
+        let req = self.requests_of(account).get(&id.to_string())?;
+        let item = self.items_of(account).get(&req.item_id);
+        Some(SpendRequestView {
+            id: req.id,
+            item_id: req.item_id,
+            amount_usdc_6: U128(req.amount_usdc_6),
+            status: req.status,
+            charged_day: req.charged_day,
+            expires_at_ns: req.expires_at_ns,
+            plan_id: req.plan_id,
+            settlement_account: req.settlement_account,
+            title: item.as_ref().map(|row| row.title.clone()).unwrap_or_default(),
+            category: item.as_ref().map(|row| row.category.clone()).unwrap_or_default(),
+        })
+    }
+
+    fn bump_open_items(&mut self, user: &AccountId) {
+        let mut account = self.load_account(user);
+        assert!(account.open_items < MAX_OPEN_PER_ACCOUNT, "too many open items");
+        account.open_items += 1;
+        self.save_account(user, &account);
+    }
+
+    fn adjust_open_items(&mut self, user: &AccountId, was_open: bool, now_open: bool) {
+        if was_open == now_open {
+            return;
+        }
+        let mut account = self.load_account(user);
+        if now_open {
+            assert!(account.open_items < MAX_OPEN_PER_ACCOUNT, "too many open items");
+            account.open_items += 1;
+        } else {
+            account.open_items = account.open_items.saturating_sub(1);
+        }
+        self.save_account(user, &account);
+    }
+
+    fn close_request(&mut self, user: &AccountId, id: &str) {
+        let mut account = self.load_account(user);
+        account.open_requests = account.open_requests.saturating_sub(1);
+        self.save_account(user, &account);
+        self.remember_resolved(user, id);
+    }
+
+    fn remember_resolved(&mut self, user: &AccountId, id: &str) {
+        let ids = self.resolved_ids(user);
+        ids.push(id);
+        while ids.len() > MAX_HISTORY_PER_ACCOUNT {
+            let Some(old) = ids.pop_front() else { break };
+            let mut requests = self.requests_of(user);
+            if let Some(req) = requests.get(&old) {
+                if !request_is_open(&req.status) {
+                    requests.remove(&old);
+                }
+            }
+        }
+    }
+
+    fn forget_resolved(&mut self, user: &AccountId, id: &str) {
+        self.resolved_ids(user).remove_value(id);
+    }
+
     fn assert_admin(&self) {
         assert_eq!(env::predecessor_account_id(), self.owner, "admin only");
     }
@@ -563,44 +696,44 @@ impl Contract {
         plan_id: Option<String>,
     ) -> Promise {
         if let Some(pid) = plan_id.clone() {
-            let key = pair_key(&user, &pid);
-            let mut plan = self.plans.get(&key).expect("plan");
+            let mut plans = self.plans_of(&user);
+            let mut plan = plans.get(&pid).expect("plan");
             assert!(
                 plan.spent_usdc_6 + amount <= plan.budget_usdc_6,
                 "over plan budget"
             );
             plan.spent_usdc_6 += amount;
-            self.plans.insert(&key, &plan);
+            plans.insert(&pid, &plan);
         }
-        let req_key = pair_key(&user, &id);
-        let mut req = self.requests.get(&req_key).expect("request");
+        let mut requests = self.requests_of(&user);
+        let mut req = requests.get(&id).expect("request");
         assert_eq!(req.status, "awaiting_approval", "not awaiting approval");
+        let receiver = req.settlement_account.clone();
         req.status = "transferring".into();
         req.plan_id = plan_id;
-        self.requests.insert(&req_key, &req);
+        requests.insert(&id, &req);
         self.set_status(&user, &id, "transferring");
-        self.transfer_out(user, amount, "spend".into(), Some(id))
+        self.transfer_out(user, amount, "spend".into(), Some(id), receiver)
     }
 
     fn return_lock(&mut self, user: &AccountId, id: &str, status: &str, require_expired: bool) {
-        let req_key = pair_key(user, id);
-        let mut req = self.requests.get(&req_key).expect("request");
+        let mut requests = self.requests_of(user);
+        let mut req = requests.get(&id.to_string()).expect("request");
         assert_eq!(req.status, "awaiting_approval", "not awaiting approval");
         if require_expired {
-            assert!(
-                env::block_timestamp() >= req.expires_at_ns,
-                "not expired"
-            );
+            assert!(env::block_timestamp() >= req.expires_at_ns, "not expired");
         }
         let mut account = self.load_account(user);
         let amount = req.amount_usdc_6;
+        let item_id = req.item_id.clone();
         account.locked = account.locked.saturating_sub(amount);
         account.escrow = account.escrow.checked_add(amount).expect("overflow");
         self.refund_daily(&mut account, req.charged_day, amount);
         self.save_account(user, &account);
         req.status = status.into();
-        self.requests.insert(&req_key, &req);
-        self.set_status(user, &req.item_id, status);
+        requests.insert(&id.to_string(), &req);
+        self.close_request(user, id);
+        self.set_status(user, &item_id, status);
     }
 
     fn refund_daily(&self, account: &mut AccountRecord, charged_day: u64, amount: u128) {
@@ -611,18 +744,19 @@ impl Contract {
     }
 
     fn refund_plan(&mut self, user: &AccountId, plan_id: &str, amount: u128) {
-        let key = pair_key(user, plan_id);
-        if let Some(mut plan) = self.plans.get(&key) {
+        let mut plans = self.plans_of(user);
+        if let Some(mut plan) = plans.get(&plan_id.to_string()) {
             plan.spent_usdc_6 = plan.spent_usdc_6.saturating_sub(amount);
-            self.plans.insert(&key, &plan);
+            plans.insert(&plan_id.to_string(), &plan);
         }
     }
 
     fn set_status(&mut self, user: &AccountId, id: &str, status: &str) {
-        let key = pair_key(user, id);
-        if let Some(mut item) = self.items.get(&key) {
+        let mut items = self.items_of(user);
+        if let Some(mut item) = items.get(&id.to_string()) {
+            self.adjust_open_items(user, item_is_open(&item.status), item_is_open(status));
             item.status = status.into();
-            self.items.insert(&key, &item);
+            items.insert(&id.to_string(), &item);
         }
     }
 
@@ -632,12 +766,8 @@ impl Contract {
         amount: u128,
         kind: String,
         request_id: Option<String>,
+        receiver: AccountId,
     ) -> Promise {
-        let receiver = if kind == "withdraw" {
-            account_id.clone()
-        } else {
-            self.settlement_account.clone()
-        };
         ext_ft::ext(self.usdc_contract.clone())
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .with_static_gas(GAS_FT_TRANSFER)
@@ -667,16 +797,9 @@ fn default_account() -> AccountRecord {
         escrow: 0,
         locked: 0,
         pending_withdraw: 0,
+        open_items: 0,
+        open_requests: 0,
     }
-}
-
-fn pair_key(account: &AccountId, id: &str) -> Vec<u8> {
-    let name = account.as_bytes();
-    let mut key = Vec::with_capacity(2 + name.len() + id.len());
-    key.extend_from_slice(&(name.len() as u16).to_le_bytes());
-    key.extend_from_slice(name);
-    key.extend_from_slice(id.as_bytes());
-    key
 }
 
 fn assert_id(id: &str) {
@@ -691,16 +814,106 @@ fn item_is_open(status: &str) -> bool {
     !matches!(status, "purchased" | "rejected" | "expired" | "failed" | "cancelled")
 }
 
-fn assert_zero_deposit() {
-    assert_eq!(env::attached_deposit().as_yoctonear(), 0, "zero deposit");
+fn request_is_open(status: &str) -> bool {
+    matches!(status, "awaiting_approval" | "transferring")
 }
 
-fn key_belongs_to(key: &[u8], account: &AccountId) -> bool {
-    if key.len() < 2 {
-        return false;
+fn bump_open_requests(account: &mut AccountRecord) {
+    assert!(account.open_requests < MAX_OPEN_PER_ACCOUNT, "too many open requests");
+    account.open_requests += 1;
+}
+
+/// Ordered ids for one wallet. The length lives in the trie, so a fresh handle sees earlier writes.
+struct IdList {
+    prefix: Vec<u8>,
+}
+
+impl IdList {
+    fn new(kind: u8, account: &AccountId) -> Self {
+        let mut prefix = Vec::with_capacity(2 + account.as_bytes().len());
+        prefix.push(b'L');
+        prefix.push(kind);
+        prefix.extend_from_slice(account.as_bytes());
+        Self { prefix }
     }
-    let len = u16::from_le_bytes([key[0], key[1]]) as usize;
-    key.len() >= 2 + len && &key[2..2 + len] == account.as_bytes()
+
+    fn len_key(&self) -> Vec<u8> {
+        let mut key = self.prefix.clone();
+        key.push(b'#');
+        key
+    }
+
+    fn index_key(&self, index: u64) -> Vec<u8> {
+        let mut key = self.prefix.clone();
+        key.extend_from_slice(&index.to_le_bytes());
+        key
+    }
+
+    fn len(&self) -> u64 {
+        env::storage_read(&self.len_key())
+            .and_then(|bytes| u64::try_from_slice(&bytes).ok())
+            .unwrap_or(0)
+    }
+
+    fn get(&self, index: u64) -> Option<String> {
+        env::storage_read(&self.index_key(index)).and_then(|bytes| String::try_from_slice(&bytes).ok())
+    }
+
+    fn set(&self, index: u64, id: &str) {
+        let _ = env::storage_write(&self.index_key(index), &near_sdk::borsh::to_vec(id).expect("id"));
+    }
+
+    fn push(&self, id: &str) {
+        let len = self.len();
+        self.set(len, id);
+        let _ = env::storage_write(&self.len_key(), &near_sdk::borsh::to_vec(&(len + 1)).expect("len"));
+    }
+
+    fn pop(&self) -> Option<String> {
+        let len = self.len();
+        if len == 0 {
+            return None;
+        }
+        let last = self.get(len - 1);
+        let _ = env::storage_remove(&self.index_key(len - 1));
+        let _ = env::storage_write(&self.len_key(), &near_sdk::borsh::to_vec(&(len - 1)).expect("len"));
+        last
+    }
+
+    fn pop_front(&self) -> Option<String> {
+        let len = self.len();
+        if len == 0 {
+            return None;
+        }
+        let first = self.get(0)?;
+        for index in 1..len {
+            let next = self.get(index).unwrap_or_default();
+            self.set(index - 1, &next);
+        }
+        let _ = self.pop();
+        Some(first)
+    }
+
+    fn remove_value(&self, id: &str) {
+        let len = self.len();
+        let mut found = None;
+        for index in 0..len {
+            if self.get(index).as_deref() == Some(id) {
+                found = Some(index);
+                break;
+            }
+        }
+        let Some(index) = found else { return };
+        for cursor in index + 1..len {
+            let next = self.get(cursor).unwrap_or_default();
+            self.set(cursor - 1, &next);
+        }
+        let _ = self.pop();
+    }
+}
+
+fn assert_zero_deposit() {
+    assert_eq!(env::attached_deposit().as_yoctonear(), 0, "zero deposit");
 }
 
 fn unix_day() -> u64 {
@@ -749,6 +962,9 @@ pub struct SpendRequestView {
     pub charged_day: u64,
     pub expires_at_ns: u64,
     pub plan_id: Option<String>,
+    pub settlement_account: AccountId,
+    pub title: String,
+    pub category: String,
 }
 
 #[cfg(test)]
@@ -1179,5 +1395,93 @@ mod tests {
         queue(&mut contract, ALICE, "req-extra", 1);
         switch(ALICE, DAY_NS);
         contract.request_spend("req-extra".into(), U128(1));
+    }
+
+    #[test]
+    fn approval_pays_the_settlement_stored_on_the_request() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        queue(&mut contract, ALICE, "mug", 1_000_000);
+        switch(ALICE, DAY_NS);
+        contract.request_spend("mug".into(), U128(1_000_000));
+        let stored = contract
+            .get_request(ALICE.parse().unwrap(), "mug".into())
+            .unwrap()
+            .settlement_account;
+        let expected: AccountId = SETTLEMENT.parse().unwrap();
+        assert_eq!(stored, expected);
+        switch(ADMIN, DAY_NS);
+        contract.set_settlement_account("later.testnet".parse().unwrap());
+        let still = contract
+            .get_request(ALICE.parse().unwrap(), "mug".into())
+            .unwrap()
+            .settlement_account;
+        assert_eq!(still, expected);
+        let later: AccountId = "later.testnet".parse().unwrap();
+        assert_eq!(contract.get_config().settlement_account, later);
+        let page = contract.get_requests(ALICE.parse().unwrap(), 0, 10);
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0].title, "item mug");
+        assert_eq!(page[0].settlement_account, stored);
+    }
+
+    #[test]
+    #[should_panic(expected = "request")]
+    fn bob_cannot_approve_alice_request() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        queue(&mut contract, ALICE, "mug", 1_000_000);
+        switch(ALICE, DAY_NS);
+        contract.request_spend("mug".into(), U128(1_000_000));
+        switch(BOB, DAY_NS);
+        contract.approve_spend("mug".into(), U128(1_000_000), None);
+    }
+
+    #[test]
+    fn bob_cannot_change_alice_policy_or_withdraw_her_escrow() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        switch(ALICE, DAY_NS);
+        contract.set_policy(Some(U128(10_000_000)), None, None, None);
+        deposit(&mut contract, BOB, 500_000);
+        switch(BOB, DAY_NS);
+        contract.set_policy(Some(U128(1_000_000)), None, None, None);
+        contract.withdraw(U128(100_000));
+        assert_eq!(
+            contract.get_policy(ALICE.parse().unwrap()).daily_limit_usdc_6.0,
+            10_000_000
+        );
+        assert_eq!(contract.get_escrow(ALICE.parse().unwrap()).available_usdc_6.0, 2_000_000);
+        assert_eq!(contract.get_escrow(BOB.parse().unwrap()).available_usdc_6.0, 400_000);
+        assert_eq!(contract.get_policy(BOB.parse().unwrap()).daily_limit_usdc_6.0, 1_000_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "not awaiting approval")]
+    fn second_approve_does_not_pay_again() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        queue(&mut contract, ALICE, "mug", 1_000_000);
+        switch(ALICE, DAY_NS);
+        contract.request_spend("mug".into(), U128(1_000_000));
+        switch(ALICE, DAY_NS);
+        let _ = contract.approve_spend("mug".into(), U128(1_000_000), None);
+        switch(ALICE, DAY_NS);
+        contract.approve_spend("mug".into(), U128(1_000_000), None);
+    }
+
+    #[test]
+    fn wallet_can_clear_its_resolved_history() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 2_000_000);
+        queue(&mut contract, ALICE, "mug", 1_000_000);
+        switch(ALICE, DAY_NS);
+        contract.request_spend("mug".into(), U128(1_000_000));
+        switch(ALICE, DAY_NS);
+        contract.reject_spend("mug".into());
+        assert!(contract.get_request(ALICE.parse().unwrap(), "mug".into()).is_some());
+        switch(ALICE, DAY_NS);
+        contract.clear_resolved();
+        assert!(contract.get_request(ALICE.parse().unwrap(), "mug".into()).is_none());
     }
 }

@@ -10,6 +10,7 @@ import { Sheet } from "@/components/Sheet";
 import { ReceiptView } from "@/components/ReceiptView";
 import { DemoPill } from "@/components/DemoBanner";
 import { parseEmvQr, type ParsedQrPayment } from "@/lib/qris/parser";
+import { classifyQr } from "@/lib/qris/scan";
 import { SAMPLE_QRS, type SampleKey } from "@/lib/qris/samples";
 import { formatFiat, formatUsdc, formatRateLine, type FxQuote } from "@/lib/fx/quote";
 import { useDisplayFx } from "@/hooks/useDisplayFx";
@@ -64,7 +65,17 @@ function PayInner() {
     setError(null);
     try {
       const p = parseEmvQr(raw.trim());
-      if (!p.merchantName && !p.merchantAccountInformation.length) throw new Error("not emv");
+      const issue = classifyQr({
+        crcValid: p.crcValid,
+        merchantName: p.merchantName,
+        merchantAccountCount: p.merchantAccountInformation.length,
+      });
+      if (issue === "bad-crc") {
+        setError(t("pay.badCrc"));
+        setStage("scan");
+        return;
+      }
+      if (issue === "invalid") throw new Error("not emv");
       setParsed(p);
       setAmountInput(p.transactionAmount || "");
       setQuote(null);
@@ -124,6 +135,11 @@ function PayInner() {
   }, [payWith, partnerLabel, pendingReq, backend, t]);
 
   async function run(req: SettlementRequest, title: string) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setError(t("pay.offline"));
+      setStage(req.mode === "card" ? "world" : "confirm");
+      return;
+    }
     if (req.quote.totalUsdc > balanceUsdc) {
       setError(t("pay.notEnough"));
       return;
@@ -251,8 +267,9 @@ function PayInner() {
               if (!f) return;
               try {
                 handleRaw(await decodeQrFromFile(f));
-              } catch {
-                setError(t("pay.noQrInImage"));
+              } catch (error) {
+                const message = error instanceof Error ? error.message : "";
+                setError(/offline|network|failed to fetch/i.test(message) ? t("pay.offline") : t("pay.uploadFailed"));
               }
             }}
           />

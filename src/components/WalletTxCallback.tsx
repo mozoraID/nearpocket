@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChainTxSheet } from "./ChainTxSheet";
-import { clearPending, publishChainTx, readPending, type ChainTxNotice } from "@/lib/near/chain-tx";
+import { publishChainTx, readOpenTx, readPending, readSeenTx, rememberOpenTx, type ChainTxNotice } from "@/lib/near/chain-tx";
+import { recoverableTxHash } from "@/lib/qris/scan";
 import { confirmNearTransaction } from "@/lib/near/confirm-tx";
 import { readTxHash } from "@/lib/near/gasless";
 import { useNearPocketStore } from "@/lib/store";
@@ -31,13 +32,17 @@ export function WalletTxCallback() {
   useEffect(() => {
     const hashes = params.get("transactionHashes");
     const errorCode = params.get("errorCode");
-    if (!hashes && !errorCode) return;
     const pending = readPending();
-    clearPending();
-    const hash = readTxHash(hashes);
+    const hash = recoverableTxHash({
+      urlHash: readTxHash(hashes),
+      storedHash: readOpenTx(),
+      seenHash: readSeenTx(),
+    });
+    if (hash) rememberOpenTx(hash);
+    if (!hash && !errorCode) return;
     const sender = accountId;
     void (async () => {
-      if (errorCode) {
+      if (errorCode && !hash) {
         setError(params.get("errorMessage") || errorCode);
         return;
       }
@@ -54,10 +59,12 @@ export function WalletTxCallback() {
         error: verdict.ok ? undefined : verdict.error,
       });
     })();
-    const next = new URLSearchParams(params.toString());
-    for (const key of ["transactionHashes", "errorCode", "errorMessage"]) next.delete(key);
-    const query = next.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname);
+    if (hashes || errorCode) {
+      const next = new URLSearchParams(params.toString());
+      for (const key of ["transactionHashes", "errorCode", "errorMessage"]) next.delete(key);
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname);
+    }
   }, [params, pathname, router, t, accountId]);
 
   return (

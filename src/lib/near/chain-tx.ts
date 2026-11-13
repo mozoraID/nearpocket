@@ -4,6 +4,7 @@ import { useNearPocketStore, type ActivityKind } from "@/lib/store";
 
 const PENDING_KEY = "nearpocket-pending-chain";
 const SEEN_KEY = "nearpocket-seen-tx";
+const OPEN_TX_KEY = "nearpocket-open-tx";
 
 export type ChainActionKind = "deposit" | "withdraw" | "request" | "approve" | "reject";
 
@@ -50,6 +51,39 @@ export function clearPending() {
   }
 }
 
+/** Keep the hash across a reload that happens before the receipt check finishes. */
+export function rememberOpenTx(hash: string) {
+  try {
+    sessionStorage.setItem(OPEN_TX_KEY, hash);
+  } catch {
+    /* private mode */
+  }
+}
+
+export function readOpenTx(): string | null {
+  try {
+    return sessionStorage.getItem(OPEN_TX_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearOpenTx() {
+  try {
+    sessionStorage.removeItem(OPEN_TX_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readSeenTx(): string | null {
+  try {
+    return sessionStorage.getItem(SEEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function alreadySeen(hash: string): boolean {
   try {
     return sessionStorage.getItem(SEEN_KEY) === hash;
@@ -79,6 +113,7 @@ export function publishChainTx(notice: ChainTxNotice) {
   if (!notice.txHash || alreadySeen(notice.txHash)) return;
   markSeen(notice.txHash);
   clearPending();
+  clearOpenTx();
   const failed = notice.ok === false;
   useNearPocketStore.getState().logActivity({
     kind: KIND[notice.kind],

@@ -18,9 +18,9 @@ Screenshots: [landing](docs/screenshots/landing.png) · [home](docs/screenshots/
 | --- | --- |
 | EMVCo parser + CRC + camera / upload | **Real** |
 | FX (Frankfurter/ECB, cross-check open.er-api, static table if both are down) | **Real** when reachable; UI shows source. **Fallback rates** if not |
-| Agent-policy contract | **Live on testnet.** [`pocket.nearpocket.testnet`](https://testnet.nearblocks.io/address/pocket.nearpocket.testnet) holds each wallet's USDC escrow and releases it only on that wallet's approval. Payouts go to [`settle.nearpocket.testnet`](https://testnet.nearblocks.io/address/settle.nearpocket.testnet) |
-| Per-account escrow | **In the new contract.** Deposit with `ft_transfer_call`, `request_spend` locks it, `approve_spend` releases it. Not live until the new account is deployed |
-| Gasless shop approval | **Testnet relayer** when `RELAYER_ACCOUNT_ID` and `RELAYER_PRIVATE_KEY` are set. Otherwise the connected wallet pays gas, or the step stays on this device |
+| Agent-policy contract | **Live on testnet.** [`pocket.nearpocket.testnet`](https://testnet.nearblocks.io/address/pocket.nearpocket.testnet) holds each wallet's USDC escrow and releases it only on that wallet's approval. Payouts go to [`settle.nearpocket.testnet`](https://testnet.nearblocks.io/address/settle.nearpocket.testnet). A newer build, with the payout account stored on each request, is deployed separately (see below) |
+| Per-account escrow | **Live** on `pocket.nearpocket.testnet`. Deposit with `ft_transfer_call`, `request_spend` locks it, `approve_spend` releases it |
+| Shop transactions | The connected wallet signs each contract call as its own one-action transaction with its function-call key and pays the gas. A function-call key cannot sign a second action or a delegate |
 | Intents quote integration | **Quotes are real** (1Click dry quote). **Execution is not run** |
 | Marketplace search | Amazon via DummyJSON when reachable; other shops **mocked**, with real search URLs, labeled |
 | Xendit QRIS | **Sandbox payment (Xendit test mode)** only when `XENDIT_SECRET_KEY` is set. If Xendit or 0xramp is unreachable (network or HTTP 5xx), settlement **falls back to the labeled mock**. A 4xx stays a failed receipt |
@@ -68,11 +68,13 @@ Every connected wallet is `predecessor_account_id`. On first use the contract st
 
 That account's queue, plans, requests, and escrow are separate. `set_policy`, `queue_item`, `request_spend`, and `approve_spend` all run as that wallet. The contract admin is only for `set_settlement_account` and `set_global_paused`.
 
-`queue_item`, `request_spend`, `approve_spend`, and `reject_spend` accept **0 attached NEAR**. A function-call key can call them directly. Each wallet may keep at most 20 open items and 20 open requests; the contract account pays for that storage. A plain `near deploy` of `contracts/agent-policy/res/nearly_agent_policy.wasm` onto `pocket.nearpocket.testnet` is safe: the stored layout is unchanged, so existing escrow is kept. Do not call `new` again.
+`queue_item`, `request_spend`, `approve_spend`, and `reject_spend` accept **0 attached NEAR**. A function-call key can call them directly, one action per transaction. Each wallet may keep at most 20 open items and 20 open requests, and 20 resolved requests. The contract account pays for that storage.
+
+`pocket.nearpocket.testnet` is the live v2 deployment. Do not deploy the current wasm onto it and do not call `new` on it. The current wasm stores the settlement account inside each request and keeps each wallet's rows in its own index. Deploy it to a new account, for example `escrow.nearpocket.testnet`, then set `NEXT_PUBLIC_AGENT_POLICY_CONTRACT` and `NEAR_CONTRACT_ID` to that account. Until then the app keeps talking to `pocket.nearpocket.testnet`.
 
 `request_spend` locks USDC from that account's escrow and checks the daily and per-item limits on the locked amount. `approve_spend` by the same account calls `ft_transfer` to the settlement account. The callback restores the lock if the transfer fails. `reject_spend` and `expire_spend` return the lock to escrow. `withdraw` sends unlocked escrow back to the account.
 
-Views: `get_policy`, `get_escrow`, `get_request`, `get_item`, and `get_plan` take `account_id`. `get_config` and `contract_version` (returns `2`) do not.
+Views: `get_policy`, `get_escrow`, `get_request`, `get_item`, and `get_plan` take `account_id`. `get_requests` and `get_items` add `from_index` and `limit` (limit is capped at 50). `get_config` and `contract_version` (returns `3` on the new account, `2` on `pocket.nearpocket.testnet`) do not. `set_settlement_account` is owner-only and applies only to requests created after the change. `approve_spend` pays the account stored on that request.
 
 With a real testnet wallet connected, Home shows that wallet's USDC plus escrow (available and locked), not the demo balance. Shop's spending-limits card can deposit (`ft_transfer_call`, including a token `storage_deposit` when the account is not registered) and withdraw. A plan that finds a listing inside the budget, or **Request approval** on a result, sends `queue_item` and `request_spend`. Approve collects a delivery address in that step when one is missing, then signs `approve_spend`. Reject signs `reject_spend`. Each of those actions adds an activity row labeled confirmed on NEAR testnet and links the transaction hash. Demo listings include a 1.49 USDC deal so a small test balance can run the flow.
 
@@ -216,7 +218,17 @@ npm run lint
 npm run build
 ```
 
-Contract tests use the near-sdk mock VM, not a sandbox node, and they run in GitHub Actions (`.github/workflows/ci.yml`). Details: `contracts/agent-policy/README.md`.
+Contract unit tests use the near-sdk mock VM. `contracts/escrow-sandbox` runs the same wasm against a fungible-token contract in a local sandbox. Both run in GitHub Actions. Details: `contracts/agent-policy/README.md`.
+
+```bash
+POLICY_CONTRACT=escrow.nearpocket.testnet \
+USDC_CONTRACT=usdc.fakes.testnet \
+ALICE_KEY_FILE=./alice.json \
+BOB_KEY_FILE=./bob.json \
+node scripts/e2e-escrow-proof.mjs
+```
+
+The key files are `{ "account_id", "private_key" }`. The script does not print them. It deposits, requests, approves, rejects, tries the second approve, checks that the other wallet cannot withdraw, then withdraws, and prints balances and transaction hashes. Testnet only. Create the policy account and run `scripts/deploy-escrow.sh` first.
 
 ### Testnet demo script
 
@@ -228,16 +240,15 @@ NEAR_CREDENTIALS_FILE=./.nearly-credentials/owner.json npm run testnet:demo
 
 The JSON file is `{ "account_id", "private_key" }`. Default contract is `pocket.nearpocket.testnet`. Override with `NEAR_CONTRACT_ID`. The signer does not need to be the contract admin. Testnet only.
 
-### Gasless transactions
+### Signing shop transactions
 
-Shop request, approval, and buy now can be sent as a NEAR meta-transaction (NEP-366) on testnet. The user signs a delegate action. The relayer account wraps that signature in a transaction, pays the gas, and the contract still sees the signing account as the predecessor. The receipt shows "Gas covered by NearPocket" and a testnet explorer link when the relay is included. If the relayer is not configured, or the relay fails before it is included, the same call is sent by the connected wallet and the user pays gas. Demo mode never leaves this device. QR pay does not call the policy contract.
+Shop queue, request, approve, reject, deposit, and withdraw are signed by the connected wallet. Each call is its own transaction with one function-call action, which is what a NEAR function-call access key is allowed to sign. The wallet pays the gas. The app waits for the final outcome and treats the step as success only when every receipt succeeded. Demo mode never leaves this device. QR pay does not call the policy contract.
 
-Signing:
+A relayer that submits a signed delegate (NEP-366) is still in the server code, but it is not the path the shop uses. Meteor's key for this contract is a function-call key, and that key cannot authorize a delegate. Do not turn the shop back onto the relayer.
 
-- A wallet that implements `signDelegateActions` (or `signDelegateAction`) signs the delegate with a key it already holds.
-- Meteor, HOT, Intear, and NEAR Mobile in the current wallet-selector packages do not sign delegates. For those wallets, and for an in-browser testnet account, NearPocket generates a function-call key in the browser, stores it on this device, and registers it once on the account (that registration is a normal transaction). Later calls are signed with that key and relayed. The key is limited to the agent-policy contract and its user-facing methods. It cannot change the settlement account or the global pause.
+Meteor, HOT, Intear, and NEAR Mobile sign with the function-call key the account already has for the policy contract. That key may sign exactly one function-call action, with zero attached NEAR, and only the methods it allows. `queue_item`, `request_spend`, `approve_spend`, and `reject_spend` are separate transactions. Buy now runs those three in order and continues only after the previous receipt succeeded.
 
-The relayer only forwards:
+`/api/relay` still exists for a delegate signed by a full-access key. It is not used by the shop. If it is called, it only forwards:
 
 - Function calls. NEAR transfer, AddKey, DeleteKey, DeployContract, DeleteAccount, and Stake are rejected.
 - Receiver is the agent-policy contract (`NEAR_CONTRACT_ID`, or `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, default `pocket.nearpocket.testnet`) or the testnet USDC contract (`NEAR_USDC_CONTRACT_ID`, default `usdc.fakes.testnet`).
@@ -246,9 +257,7 @@ The relayer only forwards:
 - At most 100 TGas per action, at most 8 actions, and at most 1 yoctoNEAR attached in total. Only `ft_transfer` and `ft_transfer_call` may attach that 1 yoctoNEAR. `storage_deposit` is allowlisted but cannot pull storage fees from the relayer or the user through this route.
 - An ed25519 public key, a non-zero nonce, a signature that matches, and a `max_block_height` that has not expired and is not more than 1,000 blocks ahead.
 
-Buy now sends `queue_item`, then `request_spend`, then `approve_spend`, so the lock and the release are one user action and the daily counter is applied once.
-
-Abuse limits for this prototype live in memory on each server instance: 12 requests per IP per minute, and 40 relayed transactions per sender account per UTC day. A new instance starts from zero, and instances do not share counters.
+The relay route, if used, keeps these limits in memory on each server instance: 12 requests per IP per minute, and 40 relayed transactions per sender account per UTC day. A new instance starts from zero, and instances do not share counters.
 
 ```bash
 NEAR_CREDENTIALS_FILE=./sender.json \
