@@ -490,6 +490,7 @@ export const en = {
   "escrow.deposited": "Deposited {amount} USDC to escrow",
   "escrow.withdrew": "Withdrew {amount} USDC from escrow",
   "escrow.requested": "Requested approval for {title}",
+  "escrow.queued": "Queued {title}",
   "escrow.approved": "Approved {title}",
   "escrow.rejected": "Rejected {title}",
   "escrow.notEnoughWallet": "Not enough USDC in this wallet.",

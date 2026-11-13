@@ -53,6 +53,8 @@ export interface ChainResult {
   detail?: string;
   /** Methods whose final outcome succeeded before a later step failed. */
   completedMethods?: string[];
+  /** One hash per signed transaction, in order. */
+  steps?: { methodName: string; txHash: string; ok: boolean }[];
 }
 
 interface NearRuntime {
@@ -457,6 +459,7 @@ async function runOneActionAtATime(
 ): Promise<ChainResult> {
   const batches = singleActionTransactions(calls);
   const completed: string[] = [];
+  const steps: { methodName: string; txHash: string; ok: boolean }[] = [];
   let last: ChainResult = skipped("unavailable");
   for (const batch of batches) {
     if (batch.length !== 1) {
@@ -466,6 +469,7 @@ async function runOneActionAtATime(
         detailCode: "unavailable",
         detail: "a policy transaction must contain one action",
         completedMethods: completed,
+        steps,
       };
     }
     const call = batch[0];
@@ -476,7 +480,9 @@ async function runOneActionAtATime(
       call.deposit ?? 0n,
     );
     last = await userPays(near, wallet, accountId, call.receiverId, [action]);
-    if (!last.ok || last.success === false) {
+    const stepOk = Boolean(last.ok && last.success !== false && last.txHash);
+    if (last.txHash) steps.push({ methodName: call.methodName, txHash: last.txHash, ok: stepOk });
+    if (!stepOk) {
       const why = last.detail || "transaction failed";
       return {
         ...last,
@@ -485,10 +491,11 @@ async function runOneActionAtATime(
         detailCode: last.detailCode || "failed",
         detail: completed.length ? `${call.methodName}: ${why}` : why,
         completedMethods: completed,
+        steps,
       };
     }
     completed.push(call.methodName);
-    last = { ...last, completedMethods: [...completed] };
+    last = { ...last, completedMethods: [...completed], steps: [...steps] };
   }
   return last;
 }

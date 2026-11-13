@@ -490,6 +490,7 @@ export const ms: Dict = {
   "escrow.deposited": "Deposit {amount} USDC ke eskrow",
   "escrow.withdrew": "Keluarkan {amount} USDC daripada eskrow",
   "escrow.requested": "Meminta kelulusan untuk {title}",
+  "escrow.queued": "Baris gilir {title}",
   "escrow.approved": "Meluluskan {title}",
   "escrow.rejected": "Menolak {title}",
   "escrow.notEnoughWallet": "USDC dalam dompet ini tidak mencukupi.",

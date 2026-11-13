@@ -21,7 +21,7 @@ export function useChainBalances() {
       return null;
     }
     setLoading(true);
-    const next = await loadWalletBalances(accountId);
+    const next = await loadWalletBalances(accountId, { fresh: true });
     if (next) setBalances(next);
     setLoaded(true);
     setLoading(false);
@@ -41,7 +41,7 @@ export function useChainBalances() {
     }
     let cancel = false;
     setLoading(true);
-    void loadWalletBalances(accountId).then((next) => {
+    void loadWalletBalances(accountId, { fresh: tick > 0 }).then((next) => {
       if (cancel) return;
       if (next) setBalances(next);
       setLoaded(true);

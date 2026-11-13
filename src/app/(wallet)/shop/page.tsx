@@ -41,6 +41,7 @@ import { ApprovalCard } from "@/components/ApprovalCard";
 import { SpendDecision } from "@/components/SpendDecision";
 import { useChainBalances } from "@/hooks/useChainBalances";
 import { approvalCards, openRequestIds } from "@/lib/near/approval-state";
+import { showEscrowDepositBanner } from "@/lib/near/chain-steps";
 import { budgetDecision, spendBlock } from "@/lib/near/spend-guard";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { shopBuyCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
@@ -231,7 +232,7 @@ export default function ShopPage() {
     setAskFor(null);
     setMsg(within ? t("shop.foundMsg") : t("shop.watchingMsg"));
     if (within && accountId && accountId !== "demo.local" && !demoMode) {
-      void requestWaitlistOnChain(queued, t("escrow.requested", { title: queued.title })).then((result) => {
+      void requestWaitlistOnChain(queued, t("escrow.requested", { title: queued.title }), t("escrow.queued", { title: queued.title })).then((result) => {
         if (result.kind === "chain" && !result.ok) {
           const note = chainMessage(t, result.detailCode, result.detail);
           if (note) setMsg(note);
@@ -324,7 +325,7 @@ export default function ShopPage() {
     setMsg(null);
     if (demoMode || !accountId || accountId === "demo.local") {
       if (opts?.add) addWaitlist(item);
-      await act(item.id, () => requestWaitlistOnChain(item, t("escrow.requested", { title: item.title })));
+      await act(item.id, () => requestWaitlistOnChain(item, t("escrow.requested", { title: item.title }), t("escrow.queued", { title: item.title })));
       return;
     }
     let known = balances;
@@ -349,7 +350,7 @@ export default function ShopPage() {
       return;
     }
     if (opts?.add) addWaitlist(item);
-    await act(item.id, () => requestWaitlistOnChain(item, t("escrow.requested", { title: item.title })));
+    await act(item.id, () => requestWaitlistOnChain(item, t("escrow.requested", { title: item.title }), t("escrow.queued", { title: item.title })));
   }
 
   async function act(id: string, fn: () => Promise<unknown>) {
@@ -591,9 +592,15 @@ export default function ShopPage() {
         {mounted && !demoMode && accountId && accountId !== "demo.local" && chain?.legacy && (
           <p className="mb-3 rounded-2xl bg-cream-300 px-4 py-3 text-sm text-warm-600">{t("shop.chainLegacy")}</p>
         )}
-        {mounted && !demoMode && accountId && accountId !== "demo.local" && chain && !chain.legacy && (chain.escrow?.availableUsdc ?? 0) <= 0 && (
+        {showEscrowDepositBanner({
+          real,
+          legacy: chain?.legacy,
+          loaded: Boolean(balances),
+          available: balances?.escrowAvailableUsdc,
+          locked: balances?.escrowLockedUsdc,
+        }) && (
           <p className="mb-3 rounded-2xl bg-cream-300 px-4 py-3 text-sm text-warm-600">
-            {t("shop.needsEscrow", { amount: (chain.escrow?.availableUsdc ?? 0).toFixed(2) })}
+            {t("shop.needsEscrow", { amount: (balances?.escrowAvailableUsdc ?? 0).toFixed(2) })}
           </p>
         )}
         <AgentChatInline />

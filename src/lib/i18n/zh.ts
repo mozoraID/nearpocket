@@ -490,6 +490,7 @@ export const zh: Dict = {
   "escrow.deposited": "已将 {amount} USDC 存入托管",
   "escrow.withdrew": "已从托管取出 {amount} USDC",
   "escrow.requested": "已为 {title} 请求批准",
+  "escrow.queued": "已将 {title} 加入队列",
   "escrow.approved": "已批准 {title}",
   "escrow.rejected": "已拒绝 {title}",
   "escrow.notEnoughWallet": "此钱包中的 USDC 不足。",
