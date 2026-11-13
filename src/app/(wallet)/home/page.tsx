@@ -9,7 +9,10 @@ import { ActivityRow } from "@/components/ActivityList";
 import { useNearPocketStore } from "@/lib/store";
 import { AddressRequiredError, defaultAddress, formatShipTo } from "@/lib/address";
 import { approveWaitlistItem, rejectWaitlistItem } from "@/lib/client/agent";
+import { ApprovalCard } from "@/components/ApprovalCard";
 import { SpendDecision } from "@/components/SpendDecision";
+import { approvalCards } from "@/lib/near/approval-state";
+import type { WaitlistItem } from "@/lib/agent/policy";
 import { useT } from "@/lib/i18n";
 import { useDisplayFx } from "@/hooks/useDisplayFx";
 import { useChainBalances } from "@/hooks/useChainBalances";
@@ -19,10 +22,8 @@ export default function HomePage() {
   const balanceUsdc = useNearPocketStore((s) => s.balanceUsdc);
   const demoMode = useNearPocketStore((s) => s.demoMode);
   const waitlist = useNearPocketStore((s) => s.waitlist);
-  const updateWaitlist = useNearPocketStore((s) => s.updateWaitlist);
-  const dismissWatching = useNearPocketStore((s) => s.dismissWatching);
   const ensureDemoWaitlist = useNearPocketStore((s) => s.ensureDemoWaitlist);
-  const { balances, loaded: balancesLoaded, real } = useChainBalances();
+  const { balances, loaded: balancesLoaded, real, stale } = useChainBalances();
   const activity = useNearPocketStore((s) => s.activity);
   const addresses = useNearPocketStore((s) => s.addresses);
   const { localFromUsdc, rateLine, meta } = useDisplayFx();
@@ -44,29 +45,14 @@ export default function HomePage() {
     if (mounted && demoMode) ensureDemoWaitlist();
   }, [mounted, demoMode, ensureDemoWaitlist]);
 
-  useEffect(() => {
-    if (!balances?.requests) return;
-    for (const req of balances.requests) {
-      const local = waitlist.find((item) => item.id === req.id);
-      if (!local || local.status !== "awaiting_approval") continue;
-      if (req.status === "purchased" || req.status === "rejected" || req.status === "expired" || req.status === "failed") {
-        const status =
-          req.status === "failed"
-            ? "ready"
-            : req.status === "purchased"
-              ? "purchased"
-              : req.status === "expired"
-                ? "expired"
-                : "rejected";
-        updateWaitlist(req.id, { status });
-        dismissWatching(local.title);
-      }
-    }
-  }, [balances, waitlist, updateWaitlist, dismissWatching]);
-
-  const pending = waitlist.filter((w) => {
-    if (w.status !== "awaiting_approval") return false;
-    if (!demoMode && (w.notes === "demo" || w.id.startsWith("demo_"))) return false;
+  const chainCards = approvalCards({
+    real,
+    requestsLoaded: Boolean(balances?.requestsLoaded),
+    requests: balances?.requests,
+    waitlist,
+  });
+  const demoPending = waitlist.filter((w) => {
+    if (!demoMode || w.status !== "awaiting_approval") return false;
     return true;
   });
   const chainTotal = balances
@@ -74,14 +60,18 @@ export default function HomePage() {
     : null;
   const bal = !mounted ? 0 : real ? chainTotal ?? 0 : balanceUsdc;
 
-  async function approve(id: string) {
-    const item = waitlist.find((w) => w.id === id);
-    if (!item) return;
-    setPendingIds((cur) => ({ ...cur, [id]: true }));
+  async function approve(item: WaitlistItem, amountUsdc6?: string, fromChain?: boolean) {
+    if (!useNearPocketStore.getState().waitlist.some((row) => row.id === item.id)) {
+      useNearPocketStore.getState().addWaitlist(item);
+    }
+    setPendingIds((cur) => ({ ...cur, [item.id]: true }));
     setMsg(null);
     try {
       const label = item.mocked ? t("shop.purchasedDemo") : t("escrow.approved", { title: item.title });
-      const result = await approveWaitlistItem(item, label, t("shop.purchasedDemo"));
+      const result = await approveWaitlistItem(item, label, t("shop.purchasedDemo"), {
+        amountUsdc6,
+        fromChain,
+      });
       if (result.kind === "chain") {
         setMsg(
           result.ok
@@ -96,7 +86,7 @@ export default function HomePage() {
     } finally {
       setPendingIds((cur) => {
         const next = { ...cur };
-        delete next[id];
+        delete next[item.id];
         return next;
       });
     }
@@ -106,38 +96,29 @@ export default function HomePage() {
     <main>
       <TopBar />
 
-      {mounted && pending.length > 0 && (
+      {mounted && demoMode && demoPending.length > 0 && (
         <section className="mb-4 space-y-2">
-          {pending.slice(0, 2).map((w) => (
+          {demoPending.slice(0, 2).map((w) => (
             <div key={w.id} className="rounded-3xl bg-ink p-4 text-cream-100">
               <div className="flex items-center gap-2 text-xs text-cream-400">
                 <Bot className="h-4 w-4" /> {t("home.agentNeedsOk")}
-                {w.mocked || w.notes === "demo" ? (
-                  <span className="rounded-full bg-cream-100/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cream-300">
-                    {t("common.demo")}
-                  </span>
-                ) : null}
+                <span className="rounded-full bg-cream-100/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cream-300">
+                  {t("common.demo")}
+                </span>
               </div>
               <p className="mt-1 font-semibold">{w.title}</p>
               <p className="text-sm text-cream-400">
-                {t("escrow.locked")} {(balances?.requests?.find((req) => req.id === w.id)?.amountUsdc ?? w.currentPriceUsdc).toFixed(2)} USDC · {w.marketplace || w.merchant}
-                {w.maxBudgetUsdc ? ` · ${t("home.budgetPart", { amount: w.maxBudgetUsdc })}` : ""}
+                {w.currentPriceUsdc.toFixed(2)} USDC · {w.marketplace || w.merchant}
               </p>
-              {hasAddress ? (
-                <p className="mt-1 text-xs text-cream-300">{t("shop.shipTo", { address: shipLine })}</p>
-              ) : (
-                <p className="mt-1 text-xs text-cream-300">{t("shop.addressAtCheckout")}</p>
-              )}
               <SpendDecision
                 item={w}
                 busy={isPending(w.id)}
                 variant="cream"
-                onApprove={() => approve(w.id)}
+                onApprove={() => approve(w)}
                 onReject={async () => {
                   setPendingIds((cur) => ({ ...cur, [w.id]: true }));
                   try {
-                    const result = await rejectWaitlistItem(w, t("escrow.rejected", { title: w.title }));
-                    if (result.kind === "chain" && !result.ok) setMsg(result.detail || t("tx.failed"));
+                    await rejectWaitlistItem(w, t("escrow.rejected", { title: w.title }));
                   } finally {
                     setPendingIds((cur) => {
                       const next = { ...cur };
@@ -148,6 +129,35 @@ export default function HomePage() {
                 }}
               />
             </div>
+          ))}
+        </section>
+      )}
+
+      {mounted && real && chainCards.length > 0 && (
+        <section className="mb-4 space-y-2">
+          {chainCards.map((card) => (
+            <ApprovalCard
+              key={card.request.id}
+              request={card.request}
+              item={card.item}
+              busy={isPending(card.request.id)}
+              variant="cream"
+              shipLine={hasAddress ? shipLine : ""}
+              onApprove={() => approve(card.item, card.request.amountUsdc6, true)}
+              onReject={async () => {
+                setPendingIds((cur) => ({ ...cur, [card.request.id]: true }));
+                try {
+                  const result = await rejectWaitlistItem(card.item, t("escrow.rejected", { title: card.item.title }));
+                  if (result.kind === "chain" && !result.ok) setMsg(result.detail || t("tx.failed"));
+                } finally {
+                  setPendingIds((cur) => {
+                    const next = { ...cur };
+                    delete next[card.request.id];
+                    return next;
+                  });
+                }
+              }}
+            />
           ))}
           {msg && (
             <p className="px-1 text-sm text-warm-600">
@@ -165,9 +175,13 @@ export default function HomePage() {
       <section className="rounded-[28px] bg-cream-100 p-6 ring-1 ring-cream-300">
         <p className="text-sm text-warm-600">{real ? t("home.balanceOnChain") : t("home.balanceDemo")}</p>
         <p className="mt-1 text-[40px] font-bold leading-none tracking-tight">
-          {(real && !balancesLoaded ? "…" : bal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+          {(real && !balancesLoaded && !balances ? "…" : bal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
           <span className="ml-2 text-lg font-semibold text-warm-500">USDC</span>
         </p>
+        {real && stale && <p className="mt-2 text-sm text-warm-600">{t("shop.balanceStale")}</p>}
+        {real && balancesLoaded && !balances && (
+          <p className="mt-2 text-sm text-warm-600">{t("home.balanceUnavailable")}</p>
+        )}
         {real && balances && (
           <p className="mt-2 text-sm text-warm-600">
             {t("home.balanceSplit", {

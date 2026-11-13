@@ -496,4 +496,12 @@ export const ko: Dict = {
   "shop.queuedNotLocked": "항목이 대기열에 있습니다. 지출 요청이 자금을 잠그지 못해 구매되지 않았습니다.",
   "tx.failed": "트랜잭션이 실패했습니다",
   "shop.purchasedDemo": "구매됨 (데모 판매자) · USDC가 NEAR testnet에서 풀렸습니다",
+  "shop.overBudget": "예산을 넘습니다. {title}은 {price} USDC이고 예산은 {budget} USDC입니다. 추가하지 않았습니다.",
+  "shop.noneInBudget": "{budget} USDC 이하의 상품이 없습니다. 추가하지 않았습니다.",
+  "shop.requestOpen": "이 지출 요청은 이미 열려 있습니다. 승인하거나 거절하세요. 두 번째 요청은 보내지 않았습니다.",
+  "shop.paysTo": "승인하면 {amount} USDC가 {account}로 전송됩니다.",
+  "shop.expiresAt": "만료 {when} UTC.",
+  "shop.chainUnread": "컨트랙트를 읽지 못해 아무것도 보내지 않았습니다.",
+  "home.balanceUnavailable": "잔액을 불러올 수 없습니다.",
+  "shop.balanceStale": "마지막으로 읽은 잔액을 표시합니다.",
 };

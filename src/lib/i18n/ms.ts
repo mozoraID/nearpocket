@@ -496,4 +496,12 @@ export const ms: Dict = {
   "shop.queuedNotLocked": "Item sudah dibaris. Permintaan belanja tidak mengunci dana, jadi tiada yang dibeli.",
   "tx.failed": "Transaksi gagal",
   "shop.purchasedDemo": "Dibeli (peniaga demo) · USDC dilepaskan di NEAR testnet",
+  "shop.overBudget": "Melebihi bajet. {title} berharga {price} USDC, bajet {budget} USDC. Tiada yang ditambah.",
+  "shop.noneInBudget": "Tiada senarai dalam {budget} USDC. Tiada yang ditambah.",
+  "shop.requestOpen": "Permintaan belanja ini sudah terbuka. Luluskan atau tolak. Permintaan kedua tidak dihantar.",
+  "shop.paysTo": "Meluluskan menghantar {amount} USDC kepada {account}.",
+  "shop.expiresAt": "Tamat {when} UTC.",
+  "shop.chainUnread": "Kontrak tidak dapat dibaca, jadi tiada yang dihantar.",
+  "home.balanceUnavailable": "Baki tidak tersedia sekarang.",
+  "shop.balanceStale": "Menunjukkan baki terakhir yang berjaya dibaca.",
 };

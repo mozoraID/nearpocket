@@ -496,4 +496,12 @@ export const zh: Dict = {
   "shop.queuedNotLocked": "商品已排队。支出请求没有锁定资金，因此没有完成购买。",
   "tx.failed": "交易失败",
   "shop.purchasedDemo": "已购买（演示商家）· USDC 已在 NEAR testnet 释放",
+  "shop.overBudget": "超出预算。{title} 为 {price} USDC，预算为 {budget} USDC。未添加。",
+  "shop.noneInBudget": "没有 {budget} USDC 以内的商品。未添加。",
+  "shop.requestOpen": "这笔支出请求已经打开。请批准或拒绝。没有发送第二次请求。",
+  "shop.paysTo": "批准会把 {amount} USDC 转到 {account}。",
+  "shop.expiresAt": "到期时间 {when} UTC。",
+  "shop.chainUnread": "未能读取合约，因此没有发送交易。",
+  "home.balanceUnavailable": "暂时无法读取余额。",
+  "shop.balanceStale": "显示上次成功读取的余额。",
 };

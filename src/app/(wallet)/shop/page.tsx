@@ -37,8 +37,11 @@ import type { FxQuote } from "@/lib/fx/quote";
 import { settleAndRecord } from "@/lib/client/pay";
 import { approveWaitlistItem, recheckWaitlistItem, rejectWaitlistItem, requestWaitlistOnChain } from "@/lib/client/agent";
 import { EscrowPanel } from "@/components/EscrowPanel";
+import { ApprovalCard } from "@/components/ApprovalCard";
 import { SpendDecision } from "@/components/SpendDecision";
 import { useChainBalances } from "@/hooks/useChainBalances";
+import { approvalCards, openRequestIds } from "@/lib/near/approval-state";
+import { budgetDecision, spendBlock } from "@/lib/near/spend-guard";
 import { NEAR_CONFIG, explorerAccountUrl } from "@/lib/near/config";
 import { shopBuyCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
 import { trySetPolicyOnChain } from "@/lib/near/set-policy";
@@ -65,11 +68,16 @@ interface ChainInfo {
 }
 
 function chainMessage(
-  t: (key: "shop.ownerOnlyChain" | "shop.chainLegacy" | "shop.needsEscrow", vars?: Record<string, string | number>) => string,
+  t: (
+    key: "shop.ownerOnlyChain" | "shop.chainLegacy" | "shop.needsEscrow" | "shop.requestOpen" | "shop.chainUnread",
+    vars?: Record<string, string | number>,
+  ) => string,
   code?: string,
   detail?: string,
 ) {
   if (code === "needs-escrow") return t("shop.needsEscrow", { amount: detail || "0.00" });
+  if (code === "request-open") return t("shop.requestOpen");
+  if (code === "unavailable") return t("shop.chainUnread");
   if (code === "legacy-contract") return t("shop.chainLegacy");
   if (code === "owner-only") return t("shop.ownerOnlyChain");
   return null;
@@ -115,7 +123,14 @@ export default function ShopPage() {
   const [showAll, setShowAll] = useState(false);
   const [policyMsg, setPolicyMsg] = useState<string | null>(null);
   const [addressOpen, setAddressOpen] = useState(false);
-  const { balances, real, refresh } = useChainBalances();
+  const { balances, real, refresh, stale } = useChainBalances();
+  const chainOpen = openRequestIds(balances?.requestsLoaded ? balances.requests : undefined);
+  const needsYou = approvalCards({
+    real,
+    requestsLoaded: Boolean(balances?.requestsLoaded),
+    requests: balances?.requests,
+    waitlist,
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -166,9 +181,19 @@ export default function ShopPage() {
     const max = parseFloat(budget);
     if (!max || max <= 0) return;
     const best = askFor.offer || offers?.[0];
-    const current = best?.priceUsdc ?? max * 1.2;
-    const within = current <= max;
-    const mLabel = best ? metaFor(best.marketplace)?.label || best.marketplace : undefined;
+    if (!best) {
+      setAskFor(null);
+      setMsg(t("shop.noneInBudget", { budget: max }));
+      return;
+    }
+    const current = best.priceUsdc;
+    if (budgetDecision(current, max) === "over_budget") {
+      setAskFor(null);
+      setMsg(t("shop.overBudget", { title: askFor.title, price: current.toFixed(2), budget: max }));
+      return;
+    }
+    const within = true;
+    const mLabel = metaFor(best.marketplace)?.label || best.marketplace;
     const item: WaitlistItem = {
       id: `wl_${Date.now().toString(36)}`,
       title: askFor.offer ? askFor.offer.title.split(" · ")[0] : askFor.title,
@@ -195,12 +220,14 @@ export default function ShopPage() {
         }).item
       : item;
     addWaitlist(queued);
-    logActivity({
-      kind: "agent",
-      title: t("shop.watchingTitle", { title: queued.title }),
-      detail: t("shop.watchingDetail", { budget: max, deadline }),
-      status: item.status,
-    });
+    if (item.status === "watching") {
+      logActivity({
+        kind: "agent",
+        title: t("shop.watchingTitle", { title: queued.title }),
+        detail: t("shop.watchingDetail", { budget: max, deadline }),
+        status: "watching",
+      });
+    }
     setAskFor(null);
     setMsg(within ? t("shop.foundMsg") : t("shop.watchingMsg"));
     if (within && accountId && accountId !== "demo.local" && !demoMode) {
@@ -291,6 +318,38 @@ export default function ShopPage() {
         return next;
       });
     }
+  }
+
+  async function requestApproval(item: WaitlistItem, opts?: { add?: boolean }) {
+    setMsg(null);
+    if (demoMode || !accountId || accountId === "demo.local") {
+      if (opts?.add) addWaitlist(item);
+      await act(item.id, () => requestWaitlistOnChain(item, t("escrow.requested", { title: item.title })));
+      return;
+    }
+    let known = balances;
+    if (!known?.requestsLoaded) known = (await refresh()) || known;
+    const block = spendBlock({
+      id: item.id,
+      amountUsdc: item.currentPriceUsdc,
+      requests: known?.requests,
+      requestsLoaded: known?.requestsLoaded,
+      escrowAvailableUsdc: known?.escrowAvailableUsdc,
+    });
+    if (block?.code === "request-open") {
+      setMsg(t("shop.requestOpen"));
+      return;
+    }
+    if (block?.code === "needs-escrow") {
+      setMsg(t("shop.needsEscrow", { amount: block.available }));
+      return;
+    }
+    if (block) {
+      setMsg(t("shop.chainUnread"));
+      return;
+    }
+    if (opts?.add) addWaitlist(item);
+    await act(item.id, () => requestWaitlistOnChain(item, t("escrow.requested", { title: item.title })));
   }
 
   async function act(id: string, fn: () => Promise<unknown>) {
@@ -474,28 +533,29 @@ export default function ShopPage() {
                       type="button"
                       className="btn-outline !min-h-11"
                       disabled={isPending(o.id)}
-                      onClick={() =>
-                        act(o.id, async () => {
-                          const id = `wl_${Date.now().toString(36)}`;
-                          const item: WaitlistItem = {
-                            id,
-                            title: o.title.split(" · ")[0],
-                            merchant: o.merchant,
-                            category: categoryFor(o.title),
-                            targetPriceUsdc: o.priceUsdc,
-                            currentPriceUsdc: o.priceUsdc,
-                            maxBudgetUsdc: o.priceUsdc,
-                            marketplace: metaFor(o.marketplace)?.label || o.marketplace,
-                            mocked: o.mocked,
-                            url: o.productUrl || o.url,
-                            status: demoMode ? "awaiting_approval" : "ready",
-                            createdAt: new Date().toISOString(),
-                            updatedAt: new Date().toISOString(),
-                          };
+                      onClick={() => {
+                        const id = `wl_${Date.now().toString(36)}`;
+                        const item: WaitlistItem = {
+                          id,
+                          title: o.title.split(" · ")[0],
+                          merchant: o.merchant,
+                          category: categoryFor(o.title),
+                          targetPriceUsdc: o.priceUsdc,
+                          currentPriceUsdc: o.priceUsdc,
+                          maxBudgetUsdc: o.priceUsdc,
+                          marketplace: metaFor(o.marketplace)?.label || o.marketplace,
+                          mocked: o.mocked,
+                          url: o.productUrl || o.url,
+                          status: demoMode ? "awaiting_approval" : "ready",
+                          createdAt: new Date().toISOString(),
+                          updatedAt: new Date().toISOString(),
+                        };
+                        if (demoMode) {
                           addWaitlist(item);
-                          return requestWaitlistOnChain(item, t("escrow.requested", { title: item.title }));
-                        })
-                      }
+                          return;
+                        }
+                        void requestApproval(item, { add: true });
+                      }}
                     >
                       {t("shop.requestApproval")}
                     </button>
@@ -537,11 +597,40 @@ export default function ShopPage() {
           </p>
         )}
         <AgentChatInline />
-        {items.length === 0 ? (
+        {needsYou.length > 0 && (
+          <div className="mb-3 space-y-3">
+            {needsYou.map((card) => (
+              <ApprovalCard
+                key={card.request.id}
+                request={card.request}
+                item={card.item}
+                busy={isPending(card.request.id)}
+                shipLine={shipLine}
+                onApprove={async () => {
+                  if (!useNearPocketStore.getState().waitlist.some((row) => row.id === card.item.id)) {
+                    addWaitlist(card.item);
+                  }
+                  await act(card.request.id, () =>
+                    approveWaitlistItem(
+                      card.item,
+                      card.item.mocked ? t("shop.purchasedDemo") : t("escrow.approved", { title: card.item.title }),
+                      t("shop.purchasedDemo"),
+                      { amountUsdc6: card.request.amountUsdc6, fromChain: true },
+                    ),
+                  );
+                }}
+                onReject={() =>
+                  act(card.request.id, () => rejectWaitlistItem(card.item, t("escrow.rejected", { title: card.item.title })))
+                }
+              />
+            ))}
+          </div>
+        )}
+        {items.filter((w) => !chainOpen.has(w.id)).length === 0 && needsYou.length === 0 ? (
           <div className="card text-center text-sm text-warm-600">{t("shop.nothingYet")}</div>
         ) : (
           <div className="space-y-3">
-            {items.map((w) => (
+            {items.filter((w) => !chainOpen.has(w.id)).map((w) => (
               <div key={w.id} className={clsx("card !p-4", w.status === "awaiting_approval" && "ring-2 ring-ink")}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -565,14 +654,14 @@ export default function ShopPage() {
                   </p>
                 )}
                 <div className="mt-3 flex gap-2">
-                  {w.status === "ready" || w.status === "queued" ? (
+                  {chainOpen.has(w.id) ? (
+                    <span className="flex-1" />
+                  ) : w.status === "ready" || w.status === "queued" ? (
                     <button
                       type="button"
                       className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100 disabled:opacity-40"
-                      disabled={isPending(w.id)}
-                      onClick={() =>
-                        act(w.id, () => requestWaitlistOnChain(w, t("escrow.requested", { title: w.title })))
-                      }
+                      disabled={isPending(w.id) || chainOpen.has(w.id)}
+                      onClick={() => void requestApproval(w)}
                     >
                       {isPending(w.id) ? t("home.paying") : t("shop.requestApproval")}
                     </button>
@@ -663,6 +752,7 @@ export default function ShopPage() {
             </span>
             <ExternalLink className="h-4 w-4" />
           </a>
+          {real && stale && <p className="mt-3 text-sm text-warm-600">{t("shop.balanceStale")}</p>}
           {real && balances && <EscrowPanel balances={balances} onRefresh={() => void refresh()} />}
         </div>
       </section>

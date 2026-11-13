@@ -496,6 +496,14 @@ export const en = {
   "shop.queuedNotLocked": "The item is queued. The spend request did not lock funds, so nothing was purchased.",
   "tx.failed": "Transaction failed",
   "shop.purchasedDemo": "Purchased (demo merchant) · USDC released on NEAR testnet",
+  "shop.overBudget": "Over budget. {title} is {price} USDC and the budget is {budget} USDC. Nothing was added.",
+  "shop.noneInBudget": "No listing is within {budget} USDC. Nothing was added.",
+  "shop.requestOpen": "This spend request is already open. Approve or reject it. A second request was not sent.",
+  "shop.paysTo": "Approving sends {amount} USDC to {account}.",
+  "shop.expiresAt": "Expires {when} UTC.",
+  "shop.chainUnread": "Couldn't read the contract, so nothing was sent.",
+  "home.balanceUnavailable": "Balance unavailable right now.",
+  "shop.balanceStale": "Showing the last balance we could read.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

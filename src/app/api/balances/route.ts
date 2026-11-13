@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_USDC_CONTRACT_ID } from "@/lib/near/relay-allowlist";
 import { NEAR_CONFIG } from "@/lib/near/config";
 import { fetchOnChainEscrow, usdc6ToNumber, viewOnContract } from "@/lib/near/contract";
+import { listChainSpendRequests } from "@/lib/near/spend-index";
+
+export const dynamic = "force-dynamic";
 
 function asUnits(value: unknown): string {
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -35,24 +38,16 @@ export async function GET(req: NextRequest) {
   } catch {
     registered = false;
   }
-  const requestIds = req.nextUrl.searchParams.getAll("request").slice(0, 20);
-  const requests: { id: string; status: string; amountUsdc: number }[] = [];
-  for (const id of requestIds) {
-    try {
-      const view = (await viewOnContract(NEAR_CONFIG.agentPolicyContract, "get_request", {
-        account_id: account,
-        id,
-      })) as { status?: string; amount_usdc_6?: string } | null;
-      if (view?.status) {
-        requests.push({
-          id,
-          status: view.status,
-          amountUsdc: usdc6ToNumber(view.amount_usdc_6 || 0),
-        });
-      }
-    } catch {
-      /* this id was never locked on chain */
-    }
+  let requests: Awaited<ReturnType<typeof listChainSpendRequests>>["requests"] = [];
+  let settlementAccount = "";
+  let requestsLoaded = false;
+  try {
+    const listed = await listChainSpendRequests(account);
+    requests = listed.requests;
+    settlementAccount = listed.settlementAccount;
+    requestsLoaded = true;
+  } catch {
+    requestsLoaded = false;
   }
   const escrow = await fetchOnChainEscrow(account);
   const availableRaw = escrow?.available_usdc_6 ?? "0";
@@ -70,5 +65,7 @@ export async function GET(req: NextRequest) {
     registered,
     minStorageYocto,
     requests,
+    requestsLoaded,
+    settlementAccount,
   });
 }

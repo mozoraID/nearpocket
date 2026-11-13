@@ -1,15 +1,13 @@
 "use client";
 
-import { NEAR_CONFIG } from "./config";
+import { rpcCall } from "./rpc";
 import { verdictFromExecutionOutcome, type TxVerdict } from "./tx-outcome";
 
 /** Fetch the final execution outcome and accept it only when every receipt succeeded. */
 export async function confirmNearTransaction(hash: string, senderId: string): Promise<TxVerdict> {
   try {
-    const res = await fetch(NEAR_CONFIG.nodeUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    const result = await rpcCall(
+      {
         jsonrpc: "2.0",
         id: "nearpocket",
         method: "tx",
@@ -18,13 +16,10 @@ export async function confirmNearTransaction(hash: string, senderId: string): Pr
           sender_account_id: senderId,
           wait_until: "FINAL",
         },
-      }),
-    });
-    const data = (await res.json()) as { result?: unknown; error?: { message?: string } };
-    if (data.error) {
-      return { ok: false, hash, error: data.error.message || "could not read the transaction" };
-    }
-    const verdict = verdictFromExecutionOutcome(data.result);
+      },
+      20000,
+    );
+    const verdict = verdictFromExecutionOutcome(result);
     return { ...verdict, hash: verdict.hash || hash };
   } catch (error) {
     return {

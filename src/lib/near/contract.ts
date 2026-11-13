@@ -1,4 +1,5 @@
 import { NEAR_CONFIG } from "./config";
+import { rpcCall } from "./rpc";
 
 export interface OnChainPolicy {
   daily_limit_usdc_6: string;
@@ -36,28 +37,21 @@ function toBase64(str: string) {
 }
 
 export async function viewOnContract(contractId: string, method: string, args: object = {}) {
-  const res = await fetch(NEAR_CONFIG.nodeUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "nearpocket",
-      method: "query",
-      params: {
-        request_type: "call_function",
-        finality: "final",
-        account_id: contractId,
-        method_name: method,
-        args_base64: toBase64(JSON.stringify(args)),
-      },
-    }),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || "view failed");
-  const raw = data.result?.result;
+  const result = (await rpcCall({
+    jsonrpc: "2.0",
+    id: "nearpocket",
+    method: "query",
+    params: {
+      request_type: "call_function",
+      finality: "final",
+      account_id: contractId,
+      method_name: method,
+      args_base64: toBase64(JSON.stringify(args)),
+    },
+  })) as { result?: number[] };
+  const raw = result.result;
   if (!raw) throw new Error("empty view result");
-  const bytes = Uint8Array.from(raw);
-  return JSON.parse(new TextDecoder().decode(bytes));
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(raw)));
 }
 
 async function viewMethod(method: string, args: object = {}) {

@@ -7,6 +7,9 @@ import type { FxQuote } from "@/lib/fx/quote";
 import { useNearPocketStore } from "@/lib/store";
 import { shopApproveCalls, shopRejectCalls, shopRequestCalls, submitPolicyCalls } from "@/lib/near/policy-chain";
 import { clearPending, finishPending, rememberPending } from "@/lib/near/chain-tx";
+import { chainEffects } from "@/lib/near/chain-effects";
+import { spendBlock } from "@/lib/near/spend-guard";
+import { loadWalletBalances, readCachedBalances } from "@/lib/near/escrow-actions";
 import type { ChainResult } from "@/lib/near/gasless";
 import { settleAndRecord } from "./pay";
 import { decorateShopCheckout } from "./shop-order";
@@ -22,12 +25,43 @@ export type AgentChainOutcome =
     }
   | { kind: "demo"; gasCovered?: boolean; chainNote?: string; chainDetail?: string };
 
+async function blockNewRequest(accountId: string, item: WaitlistItem) {
+  const cached = readCachedBalances(accountId);
+  let block = spendBlock({
+    id: item.id,
+    amountUsdc: item.currentPriceUsdc,
+    requests: cached?.requests,
+    requestsLoaded: cached?.requestsLoaded,
+    escrowAvailableUsdc: cached?.escrowAvailableUsdc,
+  });
+  if (block?.code === "unknown" || !cached?.requestsLoaded) {
+    const fresh = await loadWalletBalances(accountId);
+    block = spendBlock({
+      id: item.id,
+      amountUsdc: item.currentPriceUsdc,
+      requests: fresh?.requests,
+      requestsLoaded: fresh?.requestsLoaded,
+      escrowAvailableUsdc: fresh?.escrowAvailableUsdc,
+    });
+  }
+  return block;
+}
+
 /** Queue the item and lock escrow when this wallet can spend. */
 export async function requestWaitlistOnChain(item: WaitlistItem, title: string): Promise<AgentChainOutcome> {
   const st = useNearPocketStore.getState();
   if (st.demoMode || !st.accountId || st.accountId === "demo.local") {
     st.updateWaitlist(item.id, { status: "awaiting_approval" });
     return { kind: "demo" };
+  }
+  const block = await blockNewRequest(st.accountId, item);
+  if (block) {
+    return {
+      kind: "chain",
+      ok: false,
+      detailCode: block.code === "needs-escrow" ? "needs-escrow" : block.code === "request-open" ? "request-open" : "unavailable",
+      detail: block.code === "needs-escrow" ? block.available : undefined,
+    };
   }
   rememberPending({
     kind: "request",
@@ -46,15 +80,21 @@ export async function requestWaitlistOnChain(item: WaitlistItem, title: string):
       }),
     );
     const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
+    const effect = chainEffects({
+      action: "request",
+      ok: confirmed,
+      completedMethods: chain.completedMethods,
+    });
     if (chain.txHash) {
       finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
     } else clearPending();
-    if (confirmed) {
-      st.updateWaitlist(item.id, { status: "awaiting_approval", currentPriceUsdc: item.currentPriceUsdc });
-      st.dismissWatching(item.title);
-    } else if (chain.completedMethods?.includes("queue_item")) {
-      st.updateWaitlist(item.id, { status: "queued" });
+    if (effect.waitlistStatus) {
+      st.updateWaitlist(item.id, {
+        status: effect.waitlistStatus,
+        currentPriceUsdc: item.currentPriceUsdc,
+      });
     }
+    if (confirmed) st.dismissWatching(item.title);
     return {
       kind: "chain",
       ok: confirmed,
@@ -74,14 +114,17 @@ export async function approveWaitlistItem(
   item: WaitlistItem,
   chainTitle?: string,
   purchasedLabel?: string,
+  opts?: { amountUsdc6?: string; fromChain?: boolean },
 ): Promise<AgentChainOutcome> {
   const st = useNearPocketStore.getState();
   const price = item.currentPriceUsdc;
-  const check = checkSpend(st.policy, price, item.category);
-  if (!check.ok) throw new Error(check.reason);
-  if (item.maxBudgetUsdc && price > item.maxBudgetUsdc) throw new Error("Price is above your budget.");
   const realWallet = !st.demoMode && Boolean(st.accountId) && st.accountId !== "demo.local";
-  if (!realWallet && price > st.balanceUsdc) throw new Error("Not enough USDC. Top up first.");
+  if (!opts?.fromChain) {
+    const check = checkSpend(st.policy, price, item.category);
+    if (!check.ok) throw new Error(check.reason);
+    if (item.maxBudgetUsdc && price > item.maxBudgetUsdc) throw new Error("Price is above your budget.");
+    if (!realWallet && price > st.balanceUsdc) throw new Error("Not enough USDC. Top up first.");
+  }
   const address = defaultAddress(st.addresses);
   if (!address) throw new AddressRequiredError();
   const fx = (await (await fetch(`/api/fx?currency=USD&amount=${price}`)).json()) as FxQuote;
@@ -101,13 +144,16 @@ export async function approveWaitlistItem(
       direction: "out",
     });
     try {
-      const chain = await submitPolicyCalls(shopApproveCalls({ id: item.id, amountUsdc: price }));
+      const chain = await submitPolicyCalls(
+        shopApproveCalls({ id: item.id, amountUsdc: price, amountUsdc6: opts?.amountUsdc6 }),
+      );
       const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
+      const effect = chainEffects({ action: "approve", ok: confirmed });
       if (chain.txHash) finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
       else clearPending();
-      if (confirmed) {
+      if (effect.waitlistStatus) {
         st.updateWaitlist(item.id, {
-          status: "purchased",
+          status: effect.waitlistStatus,
           agentReason: item.mocked ? purchasedLabel || "Purchased (demo merchant)" : "Bought after your approval.",
         });
         st.dismissWatching(item.title);
@@ -169,10 +215,11 @@ export async function rejectWaitlistItem(item: WaitlistItem, chainTitle?: string
     try {
       const chain = await submitPolicyCalls(shopRejectCalls({ id: item.id }));
       const confirmed = Boolean(chain.ok && chain.success !== false && chain.txHash);
+      const effect = chainEffects({ action: "reject", ok: confirmed });
       if (chain.txHash) finishPending(chain.txHash, { ok: confirmed, error: chain.detail });
       else clearPending();
-      if (confirmed) {
-        st.updateWaitlist(item.id, { status: "rejected", agentReason: "Rejected by you." });
+      if (effect.waitlistStatus) {
+        st.updateWaitlist(item.id, { status: effect.waitlistStatus, agentReason: "Rejected by you." });
         st.dismissWatching(item.title);
       }
       return {

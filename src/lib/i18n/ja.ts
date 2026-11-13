@@ -496,4 +496,12 @@ export const ja: Dict = {
   "shop.queuedNotLocked": "商品はキューに入りました。支出リクエストは資金をロックしなかったので、購入されていません。",
   "tx.failed": "トランザクションが失敗しました",
   "shop.purchasedDemo": "購入済み（デモの店舗）· USDC は NEAR testnet で解放されました",
+  "shop.overBudget": "予算超過です。{title} は {price} USDC、予算は {budget} USDC です。追加していません。",
+  "shop.noneInBudget": "{budget} USDC 以内の出品はありません。追加していません。",
+  "shop.requestOpen": "この支出リクエストは既に開いています。承認または却下してください。2件目は送っていません。",
+  "shop.paysTo": "承認すると {amount} USDC が {account} に送られます。",
+  "shop.expiresAt": "期限 {when} UTC。",
+  "shop.chainUnread": "コントラクトを読めなかったため、何も送っていません。",
+  "home.balanceUnavailable": "残高を取得できません。",
+  "shop.balanceStale": "最後に読めた残高を表示しています。",
 };
