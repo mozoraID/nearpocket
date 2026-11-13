@@ -12,7 +12,14 @@ import { settleAndRecord } from "./pay";
 import { decorateShopCheckout } from "./shop-order";
 
 export type AgentChainOutcome =
-  | { kind: "chain"; ok: boolean; txHash?: string; detailCode?: ChainResult["detailCode"]; detail?: string }
+  | {
+      kind: "chain";
+      ok: boolean;
+      txHash?: string;
+      detailCode?: ChainResult["detailCode"];
+      detail?: string;
+      completedMethods?: string[];
+    }
   | { kind: "demo"; gasCovered?: boolean; chainNote?: string; chainDetail?: string };
 
 /** Queue the item and lock escrow when this wallet can spend. */
@@ -45,6 +52,8 @@ export async function requestWaitlistOnChain(item: WaitlistItem, title: string):
     if (confirmed) {
       st.updateWaitlist(item.id, { status: "awaiting_approval", currentPriceUsdc: item.currentPriceUsdc });
       st.dismissWatching(item.title);
+    } else if (chain.completedMethods?.includes("queue_item")) {
+      st.updateWaitlist(item.id, { status: "queued" });
     }
     return {
       kind: "chain",
@@ -52,6 +61,7 @@ export async function requestWaitlistOnChain(item: WaitlistItem, title: string):
       txHash: chain.txHash,
       detailCode: confirmed ? chain.detailCode : chain.detailCode || "failed",
       detail: chain.detail,
+      completedMethods: chain.completedMethods,
     };
   } catch (error) {
     clearPending();

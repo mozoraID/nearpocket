@@ -493,6 +493,7 @@ export const zh: Dict = {
   "escrow.notEnoughEscrow": "未锁定的托管余额不足。",
   "escrow.needAmount": "请输入大于零的金额。",
   "shop.requestApproval": "请求批准",
+  "shop.queuedNotLocked": "商品已排队。支出请求没有锁定资金，因此没有完成购买。",
   "tx.failed": "交易失败",
   "shop.purchasedDemo": "已购买（演示商家）· USDC 已在 NEAR testnet 释放",
 };
