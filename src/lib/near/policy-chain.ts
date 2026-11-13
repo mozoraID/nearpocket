@@ -16,6 +16,7 @@ import { numberToUsdc6 } from "./contract";
 import { NEAR_CONFIG } from "./config";
 import { submitContractCalls, type ChainResult, type ContractCall } from "./gasless";
 import { DEFAULT_FUNCTION_GAS, SPEND_FUNCTION_GAS } from "./relay-allowlist";
+import { shopBuyCallList, shopRequestCallList } from "./policy-call-list";
 import type { SpendPolicy } from "@/lib/agent/policy";
 
 export type { ChainResult, ContractCall };
@@ -111,15 +112,9 @@ export function shopRequestCalls(item: {
   amountUsdc: number;
   withinBudget: boolean;
 }): ContractCall[] {
-  const amount = numberToUsdc6(item.amountUsdc);
-  const queue = policyCall("queue_item", {
-    id: item.id,
-    title: item.title.slice(0, 180),
-    category: item.category.slice(0, 64) || "shopping",
-    target_usdc_6: amount,
-  });
-  if (!item.withinBudget) return [queue];
-  return [queue, policyCall("request_spend", { id: item.id, amount_usdc_6: amount })];
+  return shopRequestCallList(NEAR_CONFIG.agentPolicyContract, item).map((call) =>
+    policyCall(call.methodName, call.args),
+  );
 }
 
 export function shopApproveCalls(item: { id: string; amountUsdc: number }): ContractCall[] {
@@ -136,24 +131,16 @@ export function shopRejectCalls(item: { id: string }): ContractCall[] {
   return [policyCall("reject_spend", { id: item.id })];
 }
 
-/** Immediate purchase: queue, lock escrow, then release it. Does not count the spend twice. */
+/** Immediate purchase: queue, lock escrow, then release it. Each step is its own transaction. */
 export function shopBuyCalls(item: {
   id: string;
   title: string;
   category: string;
   amountUsdc: number;
 }): ContractCall[] {
-  const amount = numberToUsdc6(item.amountUsdc);
-  return [
-    policyCall("queue_item", {
-      id: item.id,
-      title: item.title.slice(0, 180),
-      category: item.category.slice(0, 64) || "shopping",
-      target_usdc_6: amount,
-    }),
-    policyCall("request_spend", { id: item.id, amount_usdc_6: amount }),
-    policyCall("approve_spend", { id: item.id, amount_usdc_6: amount, plan_id: null }),
-  ];
+  return shopBuyCallList(NEAR_CONFIG.agentPolicyContract, item).map((call) =>
+    policyCall(call.methodName, call.args),
+  );
 }
 
 export function setPolicyCall(policy: SpendPolicy): ContractCall {

@@ -493,6 +493,7 @@ export const en = {
   "escrow.notEnoughEscrow": "Not enough unlocked escrow.",
   "escrow.needAmount": "Enter an amount greater than zero.",
   "shop.requestApproval": "Request approval",
+  "shop.queuedNotLocked": "The item is queued. The spend request did not lock funds, so nothing was purchased.",
   "tx.failed": "Transaction failed",
   "shop.purchasedDemo": "Purchased (demo merchant) · USDC released on NEAR testnet",
 } as const;

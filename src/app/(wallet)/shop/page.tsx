@@ -233,17 +233,40 @@ export default function ShopPage() {
       });
       req.note = "Buy now from NearPocket Shop.";
       const checkout = await decorateShopCheckout(req, shipAddress);
+      const buyId = `buy_${Date.now().toString(36)}`;
+      const buyTitle = buyOffer.title.split(" · ")[0];
       const chain = await submitPolicyCalls(
         shopBuyCalls({
-          id: `buy_${Date.now().toString(36)}`,
-          title: buyOffer.title.split(" · ")[0],
+          id: buyId,
+          title: buyTitle,
           category: categoryFor(buyOffer.title),
           amountUsdc: buyOffer.priceUsdc,
         }),
       ).catch(() => null);
+      if (!chain?.ok) {
+        if (chain?.completedMethods?.includes("queue_item")) {
+          addWaitlist({
+            id: buyId,
+            title: buyTitle,
+            merchant: buyOffer.merchant,
+            category: categoryFor(buyOffer.title),
+            targetPriceUsdc: buyOffer.priceUsdc,
+            currentPriceUsdc: buyOffer.priceUsdc,
+            marketplace: mLabel,
+            mocked: buyOffer.mocked,
+            url: buyOffer.productUrl || buyOffer.url,
+            status: "queued",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        setMsg(chain?.detail || t("shop.queuedNotLocked"));
+        setBuyOffer(null);
+        return;
+      }
       const r = await settleAndRecord(checkout, {
         kind: "purchase",
-        title: buyOffer.title.split(" · ")[0],
+        title: buyTitle,
         countTowardAgentPolicy: true,
         txHash: chain?.ok ? chain.txHash : undefined,
         gasCovered: chain?.mode === "gasless",
@@ -279,6 +302,7 @@ export default function ShopPage() {
         const chain = result as {
           kind?: string;
           ok?: boolean;
+          completedMethods?: string[];
           gasCovered?: boolean;
           chainNote?: string;
           chainDetail?: string;
@@ -287,6 +311,7 @@ export default function ShopPage() {
           txHash?: string;
         };
         if (chain.kind === "chain" && chain.ok) setMsg(t("pay.onchain"));
+        else if (chain.completedMethods?.includes("queue_item")) setMsg(chain.detail || t("shop.queuedNotLocked"));
         else if (chain.kind === "chain" && chain.txHash) setMsg(chain.detail || t("tx.failed"));
         else if (chain.gasCovered) setMsg(t("receipt.gasCovered"));
         else {
@@ -540,7 +565,7 @@ export default function ShopPage() {
                   </p>
                 )}
                 <div className="mt-3 flex gap-2">
-                  {w.status === "ready" ? (
+                  {w.status === "ready" || w.status === "queued" ? (
                     <button
                       type="button"
                       className="h-11 flex-1 rounded-full bg-ink text-sm font-semibold text-cream-100 disabled:opacity-40"

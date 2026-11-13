@@ -17,6 +17,7 @@
  */
 import { NEAR_CONFIG, explorerTxUrl } from "./config";
 import { confirmNearTransaction } from "./confirm-tx";
+import { singleActionTransactions } from "./single-action";
 import { getOrCreateFunctionCallKey } from "./local-access-key";
 import {
   BLOCK_HEIGHT_TTL,
@@ -42,6 +43,8 @@ export interface ChainResult {
   success?: boolean;
   detailCode?: "owner-only" | "legacy-contract" | "needs-escrow" | "demo" | "not-testnet" | "unavailable" | "failed";
   detail?: string;
+  /** Methods whose final outcome succeeded before a later step failed. */
+  completedMethods?: string[];
 }
 
 interface NearRuntime {
@@ -360,6 +363,14 @@ async function userPays(
   callActions: unknown[],
 ): Promise<ChainResult> {
   if (!wallet?.signAndSendTransaction) return skipped("unavailable");
+  if (callActions.length !== 1) {
+    return {
+      ok: false,
+      mode: "skipped",
+      detailCode: "unavailable",
+      detail: "a policy transaction must contain one action",
+    };
+  }
   try {
     const outcome = await wallet.signAndSendTransaction({
       signerId: accountId,
@@ -390,7 +401,7 @@ async function userPays(
   }
 }
 
-/** Sign with the connected wallet. Used when the call attaches more than 1 yoctoNEAR. */
+/** Each call is its own transaction. A function-call access key allows one FunctionCall action. */
 export async function sendWalletCalls(opts: {
   accountId: string;
   receiverId: string;
@@ -404,16 +415,8 @@ export async function sendWalletCalls(opts: {
   } catch (error) {
     return skipped("unavailable", error instanceof Error ? error.message : "near-api-js unavailable");
   }
-  const callActions = opts.calls.map((call) =>
-    near.actions.functionCall(
-      call.methodName,
-      call.args,
-      call.gas ?? DEFAULT_FUNCTION_GAS,
-      call.deposit ?? 0n,
-    ),
-  );
   const wallet = await getSignedInWallet().catch(() => null);
-  return userPays(near, wallet, opts.accountId, opts.receiverId, callActions);
+  return runOneActionAtATime(near, wallet, opts.accountId, opts.calls);
 }
 
 export async function submitContractCalls(
@@ -423,10 +426,6 @@ export async function submitContractCalls(
   const blocked = canAttempt(opts.accountId, opts.demoMode);
   if (blocked) return blocked;
   if (!calls.length) return skipped("unavailable");
-  const receiverId = calls[0].receiverId;
-  if (!receiverId || calls.some((call) => call.receiverId !== receiverId)) {
-    return skipped("unavailable", "a relayed delegate has one receiver");
-  }
   const accountId = opts.accountId as string;
 
   let near: NearRuntime;
@@ -435,17 +434,53 @@ export async function submitContractCalls(
   } catch (error) {
     return skipped("unavailable", error instanceof Error ? error.message : "near-api-js unavailable");
   }
-  const callActions = calls.map((call) =>
-    near.actions.functionCall(
+  const wallet = await getSignedInWallet().catch(() => null);
+  // A function-call key may sign exactly one FunctionCall action. Queue and
+  // request are two transactions, and the second is sent only after the first
+  // receipt outcome succeeds.
+  return runOneActionAtATime(near, wallet, accountId, calls);
+}
+
+async function runOneActionAtATime(
+  near: NearRuntime,
+  wallet: SelectorWallet | null,
+  accountId: string,
+  calls: ContractCall[],
+): Promise<ChainResult> {
+  const batches = singleActionTransactions(calls);
+  const completed: string[] = [];
+  let last: ChainResult = skipped("unavailable");
+  for (const batch of batches) {
+    if (batch.length !== 1) {
+      return {
+        ok: false,
+        mode: "skipped",
+        detailCode: "unavailable",
+        detail: "a policy transaction must contain one action",
+        completedMethods: completed,
+      };
+    }
+    const call = batch[0];
+    const action = near.actions.functionCall(
       call.methodName,
       call.args,
       call.gas ?? DEFAULT_FUNCTION_GAS,
       call.deposit ?? 0n,
-    ),
-  );
-  const wallet = await getSignedInWallet().catch(() => null);
-  // A function-call key (Meteor's key for this contract) cannot authorize a
-  // delegate action: the chain returns RequiresFullAccess. The same key can
-  // call these methods directly when the attached deposit is zero.
-  return userPays(near, wallet, accountId, receiverId, callActions);
+    );
+    last = await userPays(near, wallet, accountId, call.receiverId, [action]);
+    if (!last.ok || last.success === false) {
+      const why = last.detail || "transaction failed";
+      return {
+        ...last,
+        ok: false,
+        success: false,
+        detailCode: last.detailCode || "failed",
+        detail: completed.length ? `${call.methodName}: ${why}` : why,
+        completedMethods: completed,
+      };
+    }
+    completed.push(call.methodName);
+    last = { ...last, completedMethods: [...completed] };
+  }
+  return last;
 }

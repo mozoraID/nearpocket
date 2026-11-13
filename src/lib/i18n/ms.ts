@@ -493,6 +493,7 @@ export const ms: Dict = {
   "escrow.notEnoughEscrow": "Eskrow yang tidak dikunci tidak mencukupi.",
   "escrow.needAmount": "Masukkan jumlah yang lebih daripada sifar.",
   "shop.requestApproval": "Minta kelulusan",
+  "shop.queuedNotLocked": "Item sudah dibaris. Permintaan belanja tidak mengunci dana, jadi tiada yang dibeli.",
   "tx.failed": "Transaksi gagal",
   "shop.purchasedDemo": "Dibeli (peniaga demo) · USDC dilepaskan di NEAR testnet",
 };

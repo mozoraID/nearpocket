@@ -494,6 +494,7 @@ export const id: Dict = {
   "escrow.notEnoughEscrow": "Escrow yang tidak terkunci tidak cukup.",
   "escrow.needAmount": "Masukkan jumlah yang lebih dari nol.",
   "shop.requestApproval": "Minta persetujuan",
+  "shop.queuedNotLocked": "Item sudah diantrekan. Permintaan belanja tidak mengunci dana, jadi tidak ada yang dibeli.",
   "tx.failed": "Transaksi gagal",
   "shop.purchasedDemo": "Dibeli (merchant demo) · USDC dilepas di NEAR testnet",
 };
