@@ -227,7 +227,7 @@ export async function quoteAnyToUsdc(
     opts?.accountId &&
     (opts.accountId.endsWith(".near") || opts.accountId.endsWith(".testnet"))
       ? opts.accountId
-      : "nearly-7b1462.testnet";
+      : "pocket.nearpocket.testnet";
 
   const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const body = buildOneClickQuoteBody({

@@ -324,7 +324,10 @@ export const zh: Dict = {
   "activity.txPolicy": "已设置支出限额",
   "activity.txQueue": "项目已加入候补",
   "activity.txRequest": "助手请求支出",
-  "activity.txApprove": "所有者已批准支出",
+  "activity.txApprove": "钱包已批准，USDC 已放款",
+  "activity.txDeposit": "USDC 已存入托管",
+  "activity.txReject": "钱包已拒绝，USDC 退回托管",
+  "activity.txWithdraw": "已从托管提取 USDC",
   "activity.txPlan": "购物计划已保存",
 
   "shop.connectedCount": "已连接 {count} 个",

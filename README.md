@@ -18,7 +18,7 @@ Screenshots: [landing](docs/screenshots/landing.png) · [home](docs/screenshots/
 | --- | --- |
 | EMVCo parser + CRC + camera / upload | **Real** |
 | FX (Frankfurter/ECB, cross-check open.er-api, static table if both are down) | **Real** when reachable; UI shows source. **Fallback rates** if not |
-| Agent-policy contract | **Real interface in this repo.** Default account [`nearly-7b1462.testnet`](https://testnet.nearblocks.io/address/nearly-7b1462.testnet) is the previous single-policy deploy and does not escrow USDC. A fresh wallet shows that limitation until `NEXT_PUBLIC_AGENT_POLICY_CONTRACT` points at a per-account escrow deploy |
+| Agent-policy contract | **Live on testnet.** [`pocket.nearpocket.testnet`](https://testnet.nearblocks.io/address/pocket.nearpocket.testnet) holds each wallet's USDC escrow and releases it only on that wallet's approval. Payouts go to [`settle.nearpocket.testnet`](https://testnet.nearblocks.io/address/settle.nearpocket.testnet) |
 | Per-account escrow | **In the new contract.** Deposit with `ft_transfer_call`, `request_spend` locks it, `approve_spend` releases it. Not live until the new account is deployed |
 | Gasless shop approval | **Testnet relayer** when `RELAYER_ACCOUNT_ID` and `RELAYER_PRIVATE_KEY` are set. Otherwise the connected wallet pays gas, or the step stays on this device |
 | Intents quote integration | **Quotes are real** (1Click dry quote). **Execution is not run** |
@@ -72,7 +72,7 @@ That account's queue, plans, requests, and escrow are separate. `set_policy`, `q
 
 Views: `get_policy`, `get_escrow`, `get_request`, `get_item`, and `get_plan` take `account_id`. `get_config` and `contract_version` (returns `2`) do not.
 
-The account id is `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, then `src/config/deployed.json`, then `nearly-7b1462.testnet`. There is no state migration. The previous contract did not hold USDC. Deploy the new wasm to a new account.
+The account id is `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, then `src/config/deployed.json`, then `pocket.nearpocket.testnet`. There is no state migration. The previous contract did not hold USDC. Deploy the new wasm to a new account.
 
 ### Deploy and init
 
@@ -85,11 +85,14 @@ cp target/wasm32-unknown-unknown/release/nearly_agent_policy.wasm res/nearly_age
 
 near deploy pocket.nearpocket.testnet res/nearly_agent_policy.wasm --networkId testnet
 near call pocket.nearpocket.testnet new \
-  '{"usdc_contract":"usdc.fakes.testnet","settlement_account":"pocket.nearpocket.testnet"}' \
+  '{"usdc_contract":"usdc.fakes.testnet","settlement_account":"settle.nearpocket.testnet"}' \
   --accountId pocket.nearpocket.testnet --networkId testnet
 near call usdc.fakes.testnet storage_deposit \
   '{"account_id":"pocket.nearpocket.testnet"}' \
-  --accountId pocket.nearpocket.testnet --deposit 0.0025 --networkId testnet
+  --accountId pocket.nearpocket.testnet --deposit 0.0125 --networkId testnet
+near call usdc.fakes.testnet storage_deposit \
+  '{"account_id":"settle.nearpocket.testnet"}' \
+  --accountId pocket.nearpocket.testnet --deposit 0.0125 --networkId testnet
 ```
 
 Init args for `new`:
@@ -97,9 +100,9 @@ Init args for `new`:
 | Arg | Value |
 | --- | --- |
 | `usdc_contract` | `usdc.fakes.testnet` |
-| `settlement_account` | `pocket.nearpocket.testnet` (or another payout account) |
+| `settlement_account` | `settle.nearpocket.testnet` (any payout account other than the contract itself) |
 
-No `migrate` call. Do not run `new` on `nearly-7b1462.testnet`.
+No `migrate` call. The earlier single-policy contract `nearly-7b1462.testnet` is retired; do not run `new` on it.
 
 On Vercel set:
 
@@ -121,16 +124,20 @@ Details and the method table: `contracts/agent-policy/README.md`.
 
 ## Example policy contract transactions
 
-These hashes are from the earlier single-policy contract `nearly-7b1462.testnet`. They are examples. They are not receipts for a later action.
+Examples on `pocket.nearpocket.testnet`, signed by the wallet `nearpocket.testnet` (not the contract admin). They are examples, not receipts for a later action.
 
 | Action | Explorer |
 | --- | --- |
-| Deploy | https://testnet.nearblocks.io/txns/9uz6FqFYDertGpXWQ151ERaxsRzdPQhZkGLZiCAqy3sh |
-| set_policy | https://testnet.nearblocks.io/txns/FB7CwPsFg77txpbvdGhC8AqwbeFH3JCmtuuVHUw9Hrf2 |
-| queue_item | https://testnet.nearblocks.io/txns/AYg9utitCS6eMatv4QhHqyCGoVYp6QBy5VXnrWAMAPEU |
-| request_spend | https://testnet.nearblocks.io/txns/3eFcr6dxLcnLkcYBKJXbAssTQA5ZCnkirQn4GD31q1cw |
-| approve_spend | https://testnet.nearblocks.io/txns/Em45x6JBvu58xeVWxQm66hx2r6S4JYYxWbjeYtWoNpvD |
-| upsert_plan | https://testnet.nearblocks.io/txns/7nYrj1ECqyxWQXRJTL6a7iXcfdVq6mT81FbFYYN7wuSg |
+| Create, deploy, and `new` | https://testnet.nearblocks.io/txns/EZPQbsQ2PfPwidyk2xz27V9pMYycJwiVpcqNME8HJ9Lq |
+| Deposit 5 USDC (`ft_transfer_call`) | https://testnet.nearblocks.io/txns/FfxucrDo82f2m433wrTfzMgNphiB9PLifA9Tsd7T4cfy |
+| `queue_item` | https://testnet.nearblocks.io/txns/6WX2BGsxxpWs3UTMgTYy5BPeVTJdPE6Fn8xqHnwYVAe3 |
+| `request_spend` 2 USDC (locks escrow) | https://testnet.nearblocks.io/txns/5PeRoyfokdiNmVYk14WM9SASjiUhpjoa3wV9QWeJZTVK |
+| `approve_spend` 2 USDC (`ft_transfer` to settlement) | https://testnet.nearblocks.io/txns/H8irDtp9X1WXBS9Ls27xE8k6JFQDj6LbGTJ6r8D2P2Jt |
+| `request_spend` 1 USDC | https://testnet.nearblocks.io/txns/BTYA6mczSnfgPRmjgT56nDseZH9jXEGeUrACafb5Zejq |
+| `reject_spend` (lock returns to escrow) | https://testnet.nearblocks.io/txns/6S468TNPgyrB6U9FtJK7Pz658WzyJh4Baxpyzm8mv9UB |
+| `withdraw` 1 USDC | https://testnet.nearblocks.io/txns/6pbwGy7srVGWR9Dt2H6o9wMzbf9rK6ujjV3im1ej1eNc |
+
+After these calls the wallet's escrow showed 2 USDC available and 0 locked, and `settle.nearpocket.testnet` held the 2 USDC released by `approve_spend`.
 
 ## The shopping agent
 
@@ -215,7 +222,7 @@ NEAR_ACCOUNT_ID=<wallet.testnet> NEAR_PRIVATE_KEY='ed25519:...' npm run testnet:
 NEAR_CREDENTIALS_FILE=./.nearly-credentials/owner.json npm run testnet:demo
 ```
 
-The JSON file is `{ "account_id", "private_key" }`. Default contract is `nearly-7b1462.testnet`, which does not speak this interface. Point `NEAR_CONTRACT_ID` at the new escrow account. The signer does not need to be the contract admin. Testnet only.
+The JSON file is `{ "account_id", "private_key" }`. Default contract is `pocket.nearpocket.testnet`. Override with `NEAR_CONTRACT_ID`. The signer does not need to be the contract admin. Testnet only.
 
 ### Gasless transactions
 
@@ -229,7 +236,7 @@ Signing:
 The relayer only forwards:
 
 - Function calls. NEAR transfer, AddKey, DeleteKey, DeployContract, DeleteAccount, and Stake are rejected.
-- Receiver is the agent-policy contract (`NEAR_CONTRACT_ID`, or `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, default `nearly-7b1462.testnet`) or the testnet USDC contract (`NEAR_USDC_CONTRACT_ID`, default `usdc.fakes.testnet`).
+- Receiver is the agent-policy contract (`NEAR_CONTRACT_ID`, or `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`, default `pocket.nearpocket.testnet`) or the testnet USDC contract (`NEAR_USDC_CONTRACT_ID`, default `usdc.fakes.testnet`).
 - User methods on the policy contract, including `request_spend`, `approve_spend`, `queue_item`, `set_policy`, `reject_spend`, and `withdraw`. Admin methods `set_settlement_account` and `set_global_paused` are forwarded only when the signer is the contract admin from `get_config`.
 - On the token: `ft_transfer`, `ft_transfer_call`, `storage_deposit`.
 - At most 100 TGas per action, at most 8 actions, and at most 1 yoctoNEAR attached in total. Only `ft_transfer` and `ft_transfer_call` may attach that 1 yoctoNEAR. `storage_deposit` is allowlisted but cannot pull storage fees from the relayer or the user through this route.

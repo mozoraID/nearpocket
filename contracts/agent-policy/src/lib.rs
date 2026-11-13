@@ -129,6 +129,11 @@ impl Contract {
     pub fn new(usdc_contract: AccountId, settlement_account: AccountId) -> Self {
         assert!(!usdc_contract.as_str().is_empty(), "usdc");
         assert!(!settlement_account.as_str().is_empty(), "settlement");
+        assert_ne!(
+            settlement_account,
+            env::current_account_id(),
+            "settlement must be a separate account"
+        );
         Self {
             owner: env::predecessor_account_id(),
             usdc_contract,
@@ -159,6 +164,11 @@ impl Contract {
     pub fn set_settlement_account(&mut self, account_id: AccountId) {
         self.assert_admin();
         assert!(!account_id.as_str().is_empty(), "settlement");
+        assert_ne!(
+            account_id,
+            env::current_account_id(),
+            "settlement must be a separate account"
+        );
         self.settlement_account = account_id;
     }
 
@@ -397,6 +407,7 @@ impl Contract {
         let req = self.requests.get(&pair_key(&user, &id)).expect("request");
         assert_eq!(req.status, "awaiting_approval", "not awaiting approval");
         assert_eq!(req.amount_usdc_6, amount_usdc_6.0, "amount mismatch");
+        assert!(env::block_timestamp() < req.expires_at_ns, "request expired");
         assert!(
             amount_usdc_6.0 <= account.policy.per_item_max_usdc_6,
             "over per-item max"
@@ -1008,6 +1019,25 @@ mod tests {
         contract.request_spend("wait".into(), U128(1_000_000));
         switch(ALICE, DAY_NS);
         contract.expire_spend("wait".into());
+    }
+
+    #[test]
+    #[should_panic(expected = "request expired")]
+    fn approve_after_the_deadline_is_refused() {
+        let mut contract = setup();
+        deposit(&mut contract, ALICE, 5_000_000);
+        queue(&mut contract, ALICE, "earbuds", 1_000_000);
+        switch(ALICE, DAY_NS);
+        contract.request_spend("earbuds".into(), U128(1_000_000));
+        switch(ALICE, DAY_NS + REQUEST_TTL_NS);
+        contract.approve_spend("earbuds".into(), U128(1_000_000), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "settlement must be a separate account")]
+    fn settlement_cannot_be_the_contract_itself() {
+        switch(ADMIN, DAY_NS);
+        Contract::new(USDC.parse().unwrap(), CONTRACT_ID.parse().unwrap());
     }
 
     #[test]

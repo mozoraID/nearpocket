@@ -24,7 +24,7 @@ import {
 import { validateSignedDelegate } from "../src/lib/near/relay-policy.ts";
 
 const RPC = "https://rpc.testnet.near.org";
-const DEFAULT_CONTRACT = "nearly-7b1462.testnet";
+const DEFAULT_CONTRACT = "pocket.nearpocket.testnet";
 
 function die(message) {
   console.error(message);

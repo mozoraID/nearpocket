@@ -324,7 +324,10 @@ export const ms: Dict = {
   "activity.txPolicy": "Had perbelanjaan ditetapkan",
   "activity.txQueue": "Item ditambah ke senarai tunggu",
   "activity.txRequest": "Ejen meminta untuk berbelanja",
-  "activity.txApprove": "Pemilik meluluskan perbelanjaan",
+  "activity.txApprove": "Dompet meluluskan; USDC dilepaskan",
+  "activity.txDeposit": "USDC didepositkan ke escrow",
+  "activity.txReject": "Dompet menolak; USDC kembali ke escrow",
+  "activity.txWithdraw": "USDC dikeluarkan dari escrow",
   "activity.txPlan": "Pelan beli-belah disimpan",
 
   "shop.connectedCount": "{count} disambungkan",

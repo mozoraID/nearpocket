@@ -325,7 +325,10 @@ export const id: Dict = {
   "activity.txPolicy": "Batas belanja diatur",
   "activity.txQueue": "Item masuk antrean",
   "activity.txRequest": "Agent minta belanja",
-  "activity.txApprove": "Pemilik menyetujui belanja",
+  "activity.txApprove": "Wallet menyetujui; USDC dilepas",
+  "activity.txDeposit": "USDC disetor ke escrow",
+  "activity.txReject": "Wallet menolak; USDC kembali ke escrow",
+  "activity.txWithdraw": "USDC ditarik dari escrow",
   "activity.txPlan": "Rencana belanja tersimpan",
 
   "shop.connectedCount": "{count} terhubung",

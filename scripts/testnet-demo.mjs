@@ -8,7 +8,7 @@
  *   NEAR_ACCOUNT_ID + NEAR_PRIVATE_KEY     (ed25519:...)
  *   or NEAR_CREDENTIALS_FILE               JSON { "account_id", "private_key" }
  *
- * Contract defaults to nearly-7b1462.testnet.
+ * Contract defaults to pocket.nearpocket.testnet.
  * Override with NEAR_CONTRACT_ID or --contract <id.testnet>.
  *
  * Each signer uses its own policy and escrow. queue_item, request_spend,
@@ -26,7 +26,7 @@ import { Account, JsonRpcProvider, KeyPair, actions } from "near-api-js";
 
 const RPC = "https://rpc.testnet.near.org";
 const EXPLORER = "https://testnet.nearblocks.io";
-const DEFAULT_CONTRACT = "nearly-7b1462.testnet";
+const DEFAULT_CONTRACT = "pocket.nearpocket.testnet";
 const FAUCET_URLS = [
   "https://helper.testnet.near.org/account",
   "https://helper.testnet.near.org",

@@ -324,7 +324,10 @@ export const ko: Dict = {
   "activity.txPolicy": "지출 한도 설정됨",
   "activity.txQueue": "대기 목록에 항목 추가",
   "activity.txRequest": "에이전트가 지출 요청",
-  "activity.txApprove": "소유자가 지출 승인",
+  "activity.txApprove": "지갑 승인, USDC 지급",
+  "activity.txDeposit": "에스크로에 USDC 입금",
+  "activity.txReject": "지갑 거절, USDC 에스크로로 반환",
+  "activity.txWithdraw": "에스크로에서 USDC 출금",
   "activity.txPlan": "쇼핑 계획 저장됨",
 
   "shop.connectedCount": "{count}개 연결됨",

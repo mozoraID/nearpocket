@@ -10,6 +10,7 @@ Each predecessor account gets its own policy, queue, plans, spend requests, and 
 - `ft_transfer_call` deposits USDC into that account's escrow.
 - `request_spend` locks the amount from escrow and counts it toward the daily and per-item limits.
 - `approve_spend` by that same account sends the locked USDC to the settlement account with `ft_transfer`. The callback restores the lock if the transfer fails.
+- `approve_spend` is refused after the request expires (24 hours).
 - `reject_spend` and `expire_spend` return the lock to escrow. `withdraw` sends unlocked escrow back to the account.
 - `set_global_paused` blocks new locks and releases. Deposits and withdrawals stay open.
 
@@ -24,11 +25,14 @@ cp target/wasm32-unknown-unknown/release/nearly_agent_policy.wasm res/nearly_age
 
 near deploy pocket.nearpocket.testnet res/nearly_agent_policy.wasm --networkId testnet
 near call pocket.nearpocket.testnet new \
-  '{"usdc_contract":"usdc.fakes.testnet","settlement_account":"pocket.nearpocket.testnet"}' \
+  '{"usdc_contract":"usdc.fakes.testnet","settlement_account":"settle.nearpocket.testnet"}' \
   --accountId pocket.nearpocket.testnet --networkId testnet
 near call usdc.fakes.testnet storage_deposit \
   '{"account_id":"pocket.nearpocket.testnet"}' \
-  --accountId pocket.nearpocket.testnet --deposit 0.0025 --networkId testnet
+  --accountId pocket.nearpocket.testnet --deposit 0.0125 --networkId testnet
+near call usdc.fakes.testnet storage_deposit \
+  '{"account_id":"settle.nearpocket.testnet"}' \
+  --accountId pocket.nearpocket.testnet --deposit 0.0125 --networkId testnet
 ```
 
 `new` arguments:
@@ -38,7 +42,7 @@ near call usdc.fakes.testnet storage_deposit \
 | `usdc_contract` | `usdc.fakes.testnet` |
 | `settlement_account` | `pocket.nearpocket.testnet` |
 
-Then set `NEXT_PUBLIC_AGENT_POLICY_CONTRACT=pocket.nearpocket.testnet`. The app default stays `nearly-7b1462.testnet` until that variable is set. A wallet on the old contract sees an in-app note and does not send these calls.
+The live deploy is `pocket.nearpocket.testnet` with settlement `settle.nearpocket.testnet`. `new` refuses a settlement account equal to the contract itself, because a token transfer to itself would fail. The app default is `pocket.nearpocket.testnet`; override with `NEXT_PUBLIC_AGENT_POLICY_CONTRACT`.
 
 A user deposits with the token, not with `new`:
 

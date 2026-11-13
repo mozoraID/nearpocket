@@ -24,6 +24,9 @@ const TX_KEYS: Record<string, string> = {
   queue_item: "activity.txQueue",
   request_spend: "activity.txRequest",
   approve_spend: "activity.txApprove",
+  deposit: "activity.txDeposit",
+  reject_spend: "activity.txReject",
+  withdraw: "activity.txWithdraw",
   upsert_plan: "activity.txPlan",
 };
 

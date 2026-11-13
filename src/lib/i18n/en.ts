@@ -324,7 +324,10 @@ export const en = {
   "activity.txPolicy": "Spending limits set",
   "activity.txQueue": "Item added to waitlist",
   "activity.txRequest": "Agent asked to spend",
-  "activity.txApprove": "Owner approved spend",
+  "activity.txApprove": "Wallet approved; USDC released",
+  "activity.txDeposit": "USDC deposited to escrow",
+  "activity.txReject": "Wallet rejected; USDC back in escrow",
+  "activity.txWithdraw": "USDC withdrawn from escrow",
   "activity.txPlan": "Shopping plan saved",
 
   "shop.connectedCount": "{count} connected",

@@ -324,7 +324,10 @@ export const th: Dict = {
   "activity.txPolicy": "ตั้งวงเงินใช้จ่ายแล้ว",
   "activity.txQueue": "เพิ่มรายการในรายการรอ",
   "activity.txRequest": "เอเจนต์ขอใช้จ่าย",
-  "activity.txApprove": "เจ้าของอนุมัติการใช้จ่าย",
+  "activity.txApprove": "กระเป๋าอนุมัติ ปล่อย USDC แล้ว",
+  "activity.txDeposit": "ฝาก USDC เข้าเอสโครว์",
+  "activity.txReject": "กระเป๋าปฏิเสธ USDC คืนเข้าเอสโครว์",
+  "activity.txWithdraw": "ถอน USDC ออกจากเอสโครว์",
   "activity.txPlan": "บันทึกแผนช้อปแล้ว",
 
   "shop.connectedCount": "เชื่อมต่อแล้ว {count}",

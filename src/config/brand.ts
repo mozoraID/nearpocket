@@ -18,7 +18,7 @@ export const BRAND = {
   liveAlias: "https://nearly-ijustabi.vercel.app",
   legacyAlias: "https://nearly-blue.vercel.app",
   /** Current default testnet contract. Override with NEXT_PUBLIC_AGENT_POLICY_CONTRACT. */
-  testnetContractId: "nearly-7b1462.testnet",
+  testnetContractId: "pocket.nearpocket.testnet",
 } as const;
 
 export type Brand = typeof BRAND;

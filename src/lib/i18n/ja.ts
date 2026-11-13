@@ -324,7 +324,10 @@ export const ja: Dict = {
   "activity.txPolicy": "利用限度を設定",
   "activity.txQueue": "待機リストに追加",
   "activity.txRequest": "エージェントが支出を申請",
-  "activity.txApprove": "オーナーが支出を承認",
+  "activity.txApprove": "ウォレットが承認し USDC を送金",
+  "activity.txDeposit": "USDC をエスクローに入金",
+  "activity.txReject": "ウォレットが拒否し USDC をエスクローへ返却",
+  "activity.txWithdraw": "エスクローから USDC を出金",
   "activity.txPlan": "買い物プランを保存",
 
   "shop.connectedCount": "{count}件接続済み",
